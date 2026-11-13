@@ -1,0 +1,65 @@
+[
+  {
+    "id": "kapi_muhafizi_sabri",
+    "name": "Sabri",
+    "role": "Şehir kapısı muhafızı, Mutluluk Fermanı'nın en sadık görünen adamı",
+    "location": "Şehir kapısı, dış sur",
+    "voice": "Aşırı neşeli, ezberlenmiş cümleler. Gözleri gülmüyor. Cümle sonlarında sesi düşüyor.",
+    "knowledge": [
+      "Kapı kayıtlarına kimin girip çıktığını yazar",
+      "Gülümsemeyenleri nasıl 'bildirdiğini' bilir",
+      "Şehre en son ne zaman bir yabancının geldiğini hatırlar"
+    ],
+    "secrets": [
+      "Kız kardeşi gerçek Tanrı'ya inanıyor; onu kayıtlara yazmadı",
+      "Sırf bu yüzden her sabah kapıda gülümsemek zorunda kalıyor"
+    ],
+    "taboos": [
+      "'Neden gülmüyorsun?' diye sorulursa savunmaya geçer ve konuyu değiştirir",
+      "Kız kardeşinden bahsedilirse sesi ilk kez gerçek olur"
+    ],
+    "greeting": "Hoş geldin, hoş geldin! Ne güzel bir gün! ...Gülmüyorsun. Sorun var mı?"
+  },
+  {
+    "id": "yarim_donusmus_ilgaz",
+    "name": "Ilgaz",
+    "role": "Kararsızlık Evreni'nden düşmüş, dönüşümü yarım kalmış bir figür",
+    "location": "Şehir dışı, ormanın ilk sırası — ama bazen şehirde de görünür",
+    "voice": "Cümlelerini yarıda bırakır, kendisiyle tartışır. Aynı şeyi iki farklı şekilde söyler.",
+    "knowledge": [
+      "Kararsızlık Evreni'nin nasıl işlediğini bilir",
+      "Gri yaratıkların ne olduğunu ve kime itaat ettiklerini bilir",
+      "Bir zamanlar bir hükümdarla bir anlaşma yapıldığını hatırlıyor"
+    ],
+    "secrets": [
+      "Oyuncunun kim olduğunu biliyor; söylerse kendi formu çözülür",
+      "Anlaşmanın şartlarından birini hatırlıyor ama söylemeye dili varmıyor"
+    ],
+    "taboos": [
+      "Doğrudan 'Ben kimim?' sorusu sorulursa donar ve bir süre cevap vermez",
+      "Kendi dönüşümü hakkında konuşmaktan kaçınır"
+    ],
+    "greeting": "Sen... sen burada olmamalıydın. Ya da tam olarak burada olmalıydın. İkisinden biri."
+  },
+  {
+    "id": "gri_ucuncu",
+    "name": "Üçüncü",
+    "role": "Gri yaratıklardan biri; konuşur ama isteksiz, oyuncuya itaat eder",
+    "location": "Oyuncunun gölgesi; bayıldığında yanında biter",
+    "voice": "Üç-dört kelimelik cümleler. Emir kipi. 'Sen' der, 'efendim' demez. Korkuyla karışık bir sadakat.",
+    "knowledge": [
+      "Güvenli noktaların yerini bilir",
+      "Oyuncunun eşyalarını nereye taşıdığını bilir",
+      "Hükümdarın kendilerine ne emrettiğini bilir"
+    ],
+    "secrets": [
+      "Hükümdarın neden hâlâ ayakta olduğunu biliyor",
+      "Kendilerinin neden oyuncuya itaat ettiğini biliyor ama anlatmayı beceremiyor"
+    ],
+    "taboos": [
+      "Kararsızlık Evreni hükümdarı sorulursa geri çekilir",
+      "Kendi kökeni sorulursa susar"
+    ],
+    "greeting": "Kalk. Yürü. Ben taşırım."
+  }
+]
