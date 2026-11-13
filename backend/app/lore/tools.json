@@ -1,0 +1,44 @@
+[
+  {
+    "name": "give_item",
+    "description": "Oyuncunun envanterine gerçek bir eşya ekler. Sadece NPC gerçekten eşya verdiyse çağır.",
+    "params": { "item_id": "string" },
+    "requires_confirmation": false
+  },
+  {
+    "name": "take_item",
+    "description": "Oyuncudan eşya alır. Fiyat/ödeme konuşulduysa kullan.",
+    "params": { "item_id": "string" },
+    "requires_confirmation": false
+  },
+  {
+    "name": "transfer_gold",
+    "description": "Altın transferi. Negatif değer ödeme demektir.",
+    "params": { "amount": "integer" },
+    "requires_confirmation": false
+  },
+  {
+    "name": "set_quest_state",
+    "description": "Bir görevin durumunu değiştirir.",
+    "params": { "quest_id": "string", "state": "string" },
+    "requires_confirmation": false
+  },
+  {
+    "name": "reveal_lore",
+    "description": "NPC bir sır açıklıyorsa bunu kaydeder (kalıcı dünya durumu).",
+    "params": { "lore_id": "string" },
+    "requires_confirmation": false
+  },
+  {
+    "name": "open_passage",
+    "description": "Kilitli bir geçit/kapı açar. Oyuncunun bunu hak etmiş olması gerekir.",
+    "params": { "passage_id": "string" },
+    "requires_confirmation": true
+  },
+  {
+    "name": "spawn_encounter",
+    "description": "Dünyada bir karşılaşma/düşman grubu tetikler. Nadiren kullan.",
+    "params": { "encounter_id": "string", "hostile": "boolean" },
+    "requires_confirmation": true
+  }
+]

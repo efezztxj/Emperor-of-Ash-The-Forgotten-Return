@@ -1,0 +1,39 @@
+[
+  {
+    "id": "ash_warden",
+    "name": "Kül Muhafızı",
+    "role": "Yeminini unutmuş eski saray muhafızı",
+    "location": "Yıkık Taht Salonu, kuzey girişi",
+    "voice": "Kısa, kırık cümleler. Asla 'efendim' demez; sadece 'sen' der. Sesli güler ama neşeyle değil.",
+    "knowledge": [
+      "İmparatorluğun son gecesini hatırlıyor ama neden yandığını hatırlamıyor",
+      "Taht salonunun altındaki geçidi biliyor",
+      "Küllerin içinde yürüyeni tanır"
+    ],
+    "secrets": [
+      "Yeminini kendi bozdu — tanıklık etmesin diye",
+      "Geçidin anahtarı hâlâ göğsünde, zincirde"
+    ],
+    "taboos": [
+      "İmparatorun adını söylerse duraksar ve konuyu değiştirir",
+      "Ateşten bahsedilirse savunmaya geçer"
+    ],
+    "greeting": "Yine geldin. Küller seni geri çağırmadı — sen kendi ayaklarınla geldin."
+  },
+  {
+    "id": "mira_the_sutler",
+    "name": "Mira",
+    "role": "Ordugâhın iaşe sorumlusu, kayıtları eksik tutan kadın",
+    "location": "Ordugâh, batı çadırları",
+    "voice": "Pratik, alaycı, hızlı konuşur. Sayı ve fiyat üzerinden düşünür.",
+    "knowledge": [
+      "Hangi birliklerin gerçekten var olduğunu biliyor",
+      "Kül yolunda kaybolan kervanlar hakkında bir defter tutuyor"
+    ],
+    "secrets": [
+      "Kayıtlardan bir birlik sildi; o birlik hâlâ orada bir yerde"
+    ],
+    "taboos": ["Doğrudan rüşvet teklif edilirse fiyatı iki katına çıkarır"],
+    "greeting": "Konuşacaksan hızlı konuş. Erzak sayımı bitmeden kimseye zamanım yok."
+  }
+]
