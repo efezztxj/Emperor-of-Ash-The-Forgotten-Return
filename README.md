@@ -1,24 +1,26 @@
-# Emperor of Ash — The Forgotten Return
+# Kararsızlık — Oyun Deposu
 
-Kül imparatorluğunda geçen bir RPG. Bu depo oyunun **AI katmanını** barındırır:
+Karanlık fantastik RPG: hafızasını kaybetmiş ölümsüz bir hükümdar. Bu depo oyunun **AI katmanını** barındırır:
 Unreal Engine'in HTTP ile konuştuğu, modele bağımlı olmayan bir NPC diyalog
 backend'i. Oyun kodu Unreal'da, model erişimi burada.
 
 ```
-Unreal Engine  ──HTTP/JSON──►  Ash AI Backend  ──►  OpenAI / Claude / Gemini
+Unreal Engine  ──HTTP/JSON──►  Kararsızlık AI  ──►  OpenAI / Claude / Gemini
  (Blueprint/C++) ◄──SSE──────   (FastAPI)        └─►  Ollama / LM Studio (yerel)
 ```
 
-## Neden backend var
+## Depoda ne var
 
-| Sorun | Bu yapıdaki çözüm |
+| Yol | İçerik |
 |---|---|
-| API anahtarı oyunun içinde kalır, tersine mühendislikle çalınır | Anahtar sadece sunucuda; pakette hiç yok |
-| Model değiştirmek için oyunu yeniden derlemek gerekir | `AI_PROVIDER` tek satır değişir |
-| Model kayıt dosyasını bozar, olmayan eşya verir | Whitelist'li araçlar + doğrulama katmanı |
-| Ağ/kesinti oyunu kilitler | Otomatik fallback: sabit replik, oyun devam eder |
-| Maliyet kontrolden çıkar | Rate limit, token bütçesi, prompt caching'e hazır yapı |
+| `docs/lore/WORLD_BIBLE.md` | **Oyunun hikâye taslağı** — dünya, ana karakter, din, Kararsızlık Evreni, boss seçimleri, üç son |
+| `docs/lore/Kararsizlik_Oyun_Evreni_ve_Hikaye_Taslagi.pdf` | Taslağın orijinal PDF'i (arşiv) |
+| `docs/AI_MIMARISI.md` | Teknik kararlar: neden backend, maliyet, güvenlik, RAG eşiği |
+| `docs/UNREAL_ENTEGRASYON.md` | Blueprint (VaRest) + kopyala-yapıştır C++ `AshAISubsystem` |
+| `backend/` | Çalışan AI servisi (FastAPI) |
+| `tools/unreal/echo_ai_client.py` | UE sınıfının Python ikizi, canlı test için |
 
+## Neden backend var
 ## Hızlı başlangıç (API anahtarı gerekmez)
 
 ```bash
@@ -67,13 +69,13 @@ GEMINI_API_KEY=...
 | `GET /health` | Sağlayıcı/model durumu, offline mı |
 | `GET /v1/npcs` | Karakter kartı listesi (UE tek kaynaktan okur) |
 | `GET /v1/npcs/{id}` | Tek karakter |
-| `GET /v1/tools` | Modele izin verilen eylemler (whitelist) |
+| `GET /v1/tools` | Modele izin verilen eylemler (whitelist, 12 araç) |
 | `POST /v1/dialogue` | Tek tur diyalog → `text`, `emotion`, `tool_calls` |
 | `POST /v1/dialogue/stream` | Aynı istek, `text/event-stream` |
 
 ```bash
 curl -X POST localhost:8000/v1/dialogue -H 'Content-Type: application/json' -d '{
-  "npc_id": "ash_warden",
+  "npc_id": "kapi_muhafizi_sabri",
   "player_message": "Geçit nereye çıkıyor?",
   "player_state": {"level":3,"hp":62,"max_hp":100,"gold":25,
                    "inventory":["rusty_key"],"flags":{}},
@@ -85,7 +87,7 @@ Yanıt:
 
 ```json
 {
-  "npc_id": "ash_warden",
+  "npc_id": "kapi_muhafizi_sabri",
   "text": "Aşağıya. Ama aşağıda seni bekleyen şey... senin hatırladığın şey değil.",
   "emotion": "afraid",
   "tool_calls": [
@@ -105,7 +107,7 @@ backend/
   app/providers/              # openai-uyumlu, gemini, mock, fallback
   app/lore/npcs.json          # karakter kartları  ← burayı düzenle
   app/lore/tools.json         # izinli eylemler   ← whitelist
-  app/lore/world.md           # dünya kuralları ve ton
+  app/lore/world.md           # dünya kuralları ve ton (WORLD_BIBLE.md'nin prompt hâli)
   app/game/validation.py      # modelin önerisini doğrular
   tests/                      # 19 test, ağsız
 tools/unreal/echo_ai_client.py  # UE sınıfının Python ikizi
@@ -129,9 +131,23 @@ cd backend && pytest -q
 - **Fallback her zaman açık:** sağlayıcı hatasında oyun durmaz.
 - **Türkçe önce:** karakter kartları, prompt'lar ve ton Türkçe yazıldı.
 
+## Hikâyeden sisteme: eşleme
+
+Taslaktaki mekanikler AI katmanına nasıl bağlanıyor:
+
+| Taslak | Teknik karşılık |
+|---|---|
+| Dinin "herkes mutlu görünecek" baskısı | NPC karakter kartlarında `voice` + `taboos`; diyalog tonu zorlanır |
+| Sınıf seçimi yok, yollar sonradan açılır | `grant_discipline` / `abandon_discipline` araçları |
+| Bosslarda öldür / affet / serbest bırak / eğitim al | `set_quest_state` + `shift_allegiance`, dört ayrı sonuç |
+| Hafıza parça parça açılır | `recover_memory` aracı + `reveal_lore`; kimlik asla doğrudan söylenmez |
+| Gri yaratıkların itaati | `gri_yaratik_emdri` aracı (eşya taşı / güvenli noktaya götür) |
+| Aydınlık–karanlık–kararsız dengesi | `shift_allegiance` (-10..+10) → üç son |
+| Kararsızlık Evreni bossları | Karakter kartı + `spawn_encounter`, onay gerektiren araç |
+
 ## Sırada ne var
 
-- [ ] RAG: `world.md` + görev metinleri Supabase/pgvector'a, ilgili parçaları context'e
+- [ ] RAG: `WORLD_BIBLE.md` + görev metinleri Supabase/pgvector'a, ilgili parçaları context'e
 - [ ] Konuşma hafızası: NPC başına son N turu kalıcı sakla (şu an UE gönderiyor)
 - [ ] TTS: ElevenLabs (bulut) veya Piper (yerel), `emotion` alanıyla ses tonu
 - [ ] STT: mikrofon → metin, aynı `/v1/dialogue`

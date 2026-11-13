@@ -105,7 +105,7 @@ async def generate(
         # Ağ/anahtar sorunu: oyunu durdurma, sabit cevaba düş
         mock = MockProvider()
         fallback = ModelReply(
-            text="(bağlantı yok) ...Kül sustu. Şimdilik sadece bakıyor.",
+            text="(bağlantı yok) ...Sessizlik. Karşındaki sadece bakıyor.",
             emotion="neutral",
             model=mock.model,
             provider=f"{label}->mock",

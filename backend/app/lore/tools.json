@@ -2,43 +2,99 @@
   {
     "name": "give_item",
     "description": "Oyuncunun envanterine gerçek bir eşya ekler. Sadece NPC gerçekten eşya verdiyse çağır.",
-    "params": { "item_id": "string" },
+    "params": {
+      "item_id": "string"
+    },
     "requires_confirmation": false
   },
   {
     "name": "take_item",
     "description": "Oyuncudan eşya alır. Fiyat/ödeme konuşulduysa kullan.",
-    "params": { "item_id": "string" },
+    "params": {
+      "item_id": "string"
+    },
     "requires_confirmation": false
   },
   {
     "name": "transfer_gold",
     "description": "Altın transferi. Negatif değer ödeme demektir.",
-    "params": { "amount": "integer" },
+    "params": {
+      "amount": "integer"
+    },
     "requires_confirmation": false
   },
   {
     "name": "set_quest_state",
     "description": "Bir görevin durumunu değiştirir.",
-    "params": { "quest_id": "string", "state": "string" },
+    "params": {
+      "quest_id": "string",
+      "state": "string"
+    },
     "requires_confirmation": false
   },
   {
     "name": "reveal_lore",
     "description": "NPC bir sır açıklıyorsa bunu kaydeder (kalıcı dünya durumu).",
-    "params": { "lore_id": "string" },
+    "params": {
+      "lore_id": "string"
+    },
     "requires_confirmation": false
   },
   {
     "name": "open_passage",
     "description": "Kilitli bir geçit/kapı açar. Oyuncunun bunu hak etmiş olması gerekir.",
-    "params": { "passage_id": "string" },
+    "params": {
+      "passage_id": "string"
+    },
     "requires_confirmation": true
   },
   {
     "name": "spawn_encounter",
     "description": "Dünyada bir karşılaşma/düşman grubu tetikler. Nadiren kullan.",
-    "params": { "encounter_id": "string", "hostile": "boolean" },
+    "params": {
+      "encounter_id": "string",
+      "hostile": "boolean"
+    },
     "requires_confirmation": true
+  },
+  {
+    "name": "grant_discipline",
+    "description": "Oyuncuya bir sınıf/disiplin yolu açar (buyuculuk, kesiş, ...). Yalnızca NPC gerçekten eğitmeyi kabul ettiyse.",
+    "params": {
+      "discipline_id": "string"
+    },
+    "requires_confirmation": false
+  },
+  {
+    "name": "abandon_discipline",
+    "description": "Oyuncunun bir disiplini bırakmasını kaydeder. Tepkiler dünyada değişir.",
+    "params": {
+      "discipline_id": "string"
+    },
+    "requires_confirmation": false
+  },
+  {
+    "name": "shift_allegiance",
+    "description": "Oyuncunun aydinlik/karanlik/kararsiz dengesini kaydırır. -10..+10 arası.",
+    "params": {
+      "delta": "integer"
+    },
+    "requires_confirmation": false
+  },
+  {
+    "name": "recover_memory",
+    "description": "Oyuncunun geçmişinden bir hatıra parçası açığa çıkarır. Nadiren, hak edilince.",
+    "params": {
+      "memory_id": "string"
+    },
+    "requires_confirmation": false
+  },
+  {
+    "name": "gri_yaratik_emdri",
+    "description": "Gri bir yaratığa emir verir: eşya taşı, oyuncuyu güvenli noktaya götür.",
+    "params": {
+      "command": "string"
+    },
+    "requires_confirmation": false
   }
 ]

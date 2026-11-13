@@ -152,7 +152,7 @@ class MockProvider:
                 break
 
         payload = {
-            "say": f"Küller konuşur ama sen konuşmadan değil. Duyduğum: {player[:120]}",
+            "say": f"Gülümse. Konuşmak istiyorsan önce gülümse. ...Duyduğum: {player[:120]}",
             "emotion": "neutral",
             "tool_calls": [],
         }

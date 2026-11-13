@@ -26,7 +26,7 @@ def _mock_provider(monkeypatch):
 
 def _payload(**overrides):
     base = {
-        "npc_id": "ash_warden",
+        "npc_id": "kapi_muhafizi_sabri",
         "player_message": "Bu geçit nereye çıkıyor?",
         "locale": "tr",
         "history": [],
@@ -98,9 +98,9 @@ def test_npc_list_and_detail():
     r = client.get("/v1/npcs")
     assert r.status_code == 200
     ids = [n["id"] for n in r.json()]
-    assert "ash_warden" in ids
+    assert "kapi_muhafizi_sabri" in ids
 
-    assert client.get("/v1/npcs/ash_warden").status_code == 200
+    assert client.get("/v1/npcs/kapi_muhafizi_sabri").status_code == 200
     assert client.get("/v1/npcs/yok_boyle").status_code == 404
 
 
@@ -108,7 +108,7 @@ def test_dialogue_basic():
     r = client.post("/v1/dialogue", json=_payload())
     assert r.status_code == 200
     body = r.json()
-    assert body["npc_id"] == "ash_warden"
+    assert body["npc_id"] == "kapi_muhafizi_sabri"
     assert body["text"]
     assert "tool_calls" in body
 
@@ -128,5 +128,5 @@ def test_stream_returns_sse_and_done():
 
 
 def test_missing_message_validation():
-    r = client.post("/v1/dialogue", json={"npc_id": "ash_warden", "player_message": ""})
+    r = client.post("/v1/dialogue", json={"npc_id": "kapi_muhafizi_sabri", "player_message": ""})
     assert r.status_code == 422

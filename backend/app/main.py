@@ -1,4 +1,4 @@
-"""Emperor of Ash — AI oyun backend'i.
+"""Kararsızlık — AI oyun backend'i.
 
 Unreal Engine bu servisi HTTP ile çağırır. Servis modele bağımlı değildir:
 aynı kod OpenAI, Claude (OpenAI-uyumlu proxy), Gemini, Ollama ya da LM Studio
@@ -31,7 +31,7 @@ from .schemas import (
 APP_VERSION = "0.1.0"
 
 app = FastAPI(
-    title="Emperor of Ash — AI Backend",
+    title="Kararsızlık — AI Backend",
     version=APP_VERSION,
     description="NPC diyalogu, doğrulanmış araç çağrıları ve model-bağımsız sağlayıcı katmanı.",
 )
@@ -115,7 +115,7 @@ async def index() -> Any:
     state = "offline / mock" if offline else "bağlı"
     return HTMLResponse(
         f"""<!doctype html><html lang="tr"><meta charset="utf-8">
-<title>Emperor of Ash — AI Backend</title>
+<title>Kararsızlık — AI Backend</title>
 <style>
  body{{background:#0d0b0a;color:#e8dcc8;font:16px/1.6 ui-monospace,monospace;
       max-width:44rem;margin:6vh auto;padding:0 1.2rem}}
@@ -123,7 +123,7 @@ async def index() -> Any:
  code{{background:#1b1713;padding:.1rem .35rem;border-radius:3px;color:#e0b070}}
  .k{{color:#8c7a63}} .v{{color:#d8c9a8}} a{{color:#e0b070}}
 </style>
-<h1>Emperor of Ash — AI Backend</h1>
+<h1>Kararsızlık — AI Backend</h1>
 <p class="k">sağlayıcı: <span class="v">{label}</span> · model:
 <span class="v">{getattr(provider, "model", "?")}</span> · durum: <span class="v">{state}</span></p>
 <p>Unreal bu servise HTTP ile bağlanır. Model burada, oyunun içinde değil.</p>

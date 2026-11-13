@@ -120,9 +120,9 @@ def _demo(base_url: str, npc: str) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Emperor of Ash AI backend istemcisi")
+    parser = argparse.ArgumentParser(description="Kararsızlık AI backend istemcisi")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    parser.add_argument("--npc", default="ash_warden")
+    parser.add_argument("--npc", default="kapi_muhafizi_sabri")
     parser.add_argument("--once", metavar="MESAJ", help="tek mesaj gönder ve çık")
     args = parser.parse_args()
 

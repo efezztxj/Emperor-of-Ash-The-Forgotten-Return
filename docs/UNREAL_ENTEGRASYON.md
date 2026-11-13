@@ -37,7 +37,7 @@ Blueprint'te JSON kurmak elle çok hantal. **VaRest** (Fab, ücretsiz) kullan:
 
 1. **VaRest** pluginini kur, `VaRest` modülünü aç.
 2. `Construct JSON Object` → `Set String Field`:
-   - `npc_id` = `ash_warden`
+   - `npc_id` = `kapi_muhafizi_sabri`
    - `player_message` = oyuncunun yazdığı metin
    - `locale` = `tr`
    - `history` = `Construct JSON Array` (boş da olur)
