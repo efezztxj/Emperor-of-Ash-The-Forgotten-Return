@@ -19,10 +19,10 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 4, 0),
+    "version": (2, 5, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "Gercek 4K ComfyUI PBR Koruyucu (Base+Metal+Rough+Normal+AO silmez!) & Unreal 5.8 koprusu.",
+    "description": "4K Keskinlik + Ucan Toz Temizleyici (Clean Islands) + PBR Canli Metal Yansima (HDRI) Koprusu.",
     "category": "Import-Export",
 }
 
@@ -130,10 +130,23 @@ class KARARSIZLIK_Properties(PropertyGroup):
         default='FBX_AND_GLB',
     )
     smooth_iterations: IntProperty(
-        name="Yumusatma Gucu (Smooth)",
-        default=6,
+        name="Yumusatma Gucu (0-2 = En Keskin!)",
+        description="Cok acarsan zirh kabartmalarini hamur gibi eritir! Keskin kabartma icin 0, 1 veya 2 tut",
+        default=1,
         min=0,
         max=40,
+    )
+    clean_floating_crumbs: BoolProperty(
+        name="Havada Ucan Toz/Parcaciklari Supur",
+        description="Pelerin/bacak etrafinda asili kalan o kucuk kopuk poligon kirintilarini tek tikla temizler",
+        default=True,
+    )
+    lighting_brightness: FloatProperty(
+        name="Studyo & Metal Canliligi (Bogukluk Açar!)",
+        description="1.0 standarttir; zirh ve renkler boguk/karanlik gorunuyorsa 1.3 - 1.8 arasina ac!",
+        default=1.35,
+        min=0.4,
+        max=3.5,
     )
     seam_weld_distance: FloatProperty(
         name="Catlak Kaynatma (0 = Kapali / UV Koru!)",
@@ -283,6 +296,52 @@ def repair_trellis_cracks_and_normals(obj, weld_ratio: float, force: bool = Fals
         bm.free()
 
 
+def remove_floating_crumbs_bmesh(obj, min_face_ratio: float = 0.0004):
+    """Pelerin ve bacak cevresinde havada asili kalan o kucuk sari/turuncu nokta poligon kirintilarini (floating islands) siler!"""
+    if obj.type != 'MESH' or obj.name.startswith("UCX_") or len(obj.data.polygons) < 100:
+        return
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(obj.data)
+        bm.faces.ensure_lookup_table()
+        total_faces = len(bm.faces)
+        min_faces = max(8, int(total_faces * min_face_ratio))
+
+        visited = set()
+        islands = []
+        for f in bm.faces:
+            if f.index in visited:
+                continue
+            stack = [f]
+            comp = []
+            visited.add(f.index)
+            while stack:
+                cur = stack.pop()
+                comp.append(cur)
+                for e in cur.edges:
+                    for nf in e.link_faces:
+                        if nf.index not in visited:
+                            visited.add(nf.index)
+                            stack.append(nf)
+            islands.append(comp)
+
+        if len(islands) > 1:
+            biggest = max(len(c) for c in islands)
+            to_del = []
+            for comp in islands:
+                if len(comp) < biggest and len(comp) < min_faces:
+                    to_del.extend(comp)
+            if to_del:
+                bmesh.ops.delete(bm, geom=to_del, context='FACES')
+                bm.normal_update()
+                bm.to_mesh(obj.data)
+                obj.data.update()
+    except Exception as exc:
+        print(f"[KARARSIZLIK Kirinti Temizleyici Uyarisi] {exc}")
+    finally:
+        bm.free()
+
+
 def apply_dark_pbr_and_smooth(context, props, run_mesh_repair: bool = False):
     scene = context.scene
 
@@ -298,21 +357,24 @@ def apply_dark_pbr_and_smooth(context, props, run_mesh_repair: bool = False):
         scene.cycles.device = 'GPU'
         scene.cycles.samples = 128
 
+    # Canli Metal Yansimasi Icin Ustten Yumusak Gokyuzu / Studyo Cevre Isigi (Boguklugu %100 Acar!)
     world = scene.world or bpy.data.worlds.new("DarkWorld")
     scene.world = world
     world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
     if bg:
-        bg.inputs[0].default_value = (0.012, 0.012, 0.016, 1.0)
-        bg.inputs[1].default_value = 0.6
+        bg.inputs[0].default_value = (0.055, 0.058, 0.068, 1.0)
+        bg.inputs[1].default_value = 0.85 * props.lighting_brightness
 
     meshes = [o for o in scene.objects if o.type == 'MESH' and not o.name.startswith("UCX_")]
     for obj in meshes:
         context.view_layer.objects.active = obj
         obj.select_set(True)
 
-        # 0. HIZLI BMesh CATLAK TAMIRI (Sadece ilk yuklemede veya kaynatma mesafesi degistiginde 0.1 sn calisir!)
+        # 0. HIZLI BMesh CATLAK TAMIRI + UCAN TOZ KIRINTILARINI SUPURME!
         repair_trellis_cracks_and_normals(obj, props.seam_weld_distance, force=run_mesh_repair)
+        if run_mesh_repair and props.clean_floating_crumbs:
+            remove_floating_crumbs_bmesh(obj)
 
         # Modelin boyuna uygun guvenli Weld esigi
         local_bbox = [Vector(corner) for corner in obj.bound_box]
@@ -524,9 +586,11 @@ def apply_dark_pbr_and_smooth(context, props, run_mesh_repair: bool = False):
         direction = -light_obj.location
         light_obj.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
 
-    add_light("NeutralKeyLight", (1.8, -2.0, 2.2), 85.0, (0.96, 0.98, 1.0), 1.8)
-    add_light("CoolMoonRimLight", (-2.0, 1.5, 1.5), 55.0, (0.78, 0.86, 1.0), 1.2)
-    add_light("SoftWarmFill", (-1.5, -1.8, -0.5), 22.0, (1.0, 0.88, 0.75), 1.5)
+    b_mul = props.lighting_brightness
+    add_light("NeutralKeyLight", (1.8, -2.2, 2.3), 135.0 * b_mul, (0.98, 0.98, 1.0), 2.2)
+    add_light("CoolMoonRimLight", (-2.0, 1.8, 1.8), 85.0 * b_mul, (0.82, 0.88, 1.0), 1.5)
+    add_light("SoftWarmFill", (-1.8, -2.0, 0.4), 50.0 * b_mul, (1.0, 0.92, 0.82), 2.0)
+    add_light("TopCrownSpecular", (0.0, -0.6, 3.2), 65.0 * b_mul, (1.0, 0.97, 0.90), 1.6)
 
     for area in context.screen.areas:
         if area.type == 'VIEW_3D':
@@ -646,11 +710,13 @@ class KARARSIZLIK_OT_ResetDefaults(Operator):
         props.target_tris = 0
         props.color_saturation = 1.0
         props.seam_weld_distance = 0.0
-        props.smooth_iterations = 2
+        props.smooth_iterations = 1
+        props.clean_floating_crumbs = True
+        props.lighting_brightness = 1.35
         props.solidify_thickness = 0.0
         props.bump_strength = 0.22
         props.double_sided_preview = True
-        self.report({'INFO'}, "Gercek 4K ComfyUI PBR altin ayarlari yuklendi! '1. Son ComfyUI Modelini Getir' tusuna bas.")
+        self.report({'INFO'}, "4K Keskinlik + Ucan Toz Temizleyici + Canli Isik ayarlari yuklendi!")
         return {'FINISHED'}
 
 
@@ -800,7 +866,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.4"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.5"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -823,10 +889,12 @@ class KARARSIZLIK_PT_MainPanel(Panel):
         box_std.prop(props, "target_tris")
 
         box2 = layout.box()
-        box2.label(text="Hizli Catlak Dikici & PBR:", icon='MOD_SMOOTH')
+        box2.label(text="4K Keskinlik & Canli Isik:", icon='MOD_SMOOTH')
         box2.operator("kararsizlik.reset_defaults", icon='LOOP_BACK')
         box2.prop(props, "use_eevee_realtime")
+        box2.prop(props, "clean_floating_crumbs")
         box2.prop(props, "double_sided_preview")
+        box2.prop(props, "lighting_brightness")
         box2.prop(props, "color_saturation")
         box2.prop(props, "seam_weld_distance")
         box2.prop(props, "smooth_iterations")
