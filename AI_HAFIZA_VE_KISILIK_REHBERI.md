@@ -227,6 +227,33 @@ add_light("WarmEmberFill", (-1.5, -1.8, -0.5), 25.0, (1.0, 0.65, 0.4), 1.5)
 
 ---
 
+## 8. Tam Otomatik Köprü: ComfyUI Klasörü -> Blender (PBR + Yumuşatma + Işık) -> Senin Onayınla Unreal Engine 5.8.4!
+
+Kanka kod kopyalamayla bile uğraşma diye reponun içine **`scripts/kararsizlik_pipeline_bridge.py`** adında **2 Butonlu Özel Blender Eklentisi** yazdım (hem sen butonla kullanabilirsin hem de `blender-mcp` ile bağlanan yerel `27B` AI doğrudan bu operatörleri çağırabilir!):
+
+### A. Tek Seferlik Kurulum (2 Dakika)
+1. **Blender Tarafı:**
+   * Blender 5.3.0'da `Edit -> Preferences -> Add-ons` gir -> Sağ üstteki küçük ok (`⌄`) -> **`Install from Disk...`** tıkla -> Repodaki **`scripts/kararsizlik_pipeline_bridge.py`** dosyasını seç!
+   * 3D sahnede klavyeden **`N`** tuşuna bas -> Sağ kenarda **`KARARSIZLIK`** adında özel bir sekme açılacak!
+2. **Unreal Engine 5.8.4 Tarafı (Otomatik Yakalama Klasörü):**
+   * Unreal Engine 5.8.4 projesini aç -> `Edit -> Editor Preferences -> Loading & Saving -> Auto-Reimport` kısmına gir.
+   * `Directories to Monitor` listesine **`+`** basıp:
+     * *Source Directory:* `C:\KARARSIZLIK_UnrealBridge\AutoImport`
+     * *Mount Point:* `/Game/KararsizlikAssets`
+     yaz!
+
+### B. Günlük Çalışma Akışı (Sıfır Zahmet + %100 Senin Onayın!)
+1. **ComfyUI'de Üret:** TRELLIS.2 modeli bitirip otomatik olarak `output\3d` klasörüne bırakır.
+2. **Blender'da `[1. Son ComfyUI Modelini Getir + PBR + Yumuşat]` Butonuna Bas (veya AI'ya söyle):**
+   * Eklenti `C:\Users\efezz\AppData\Local\Comfy-Desktop\ComfyUI-Shared\output\3d` klasöründeki **en son ürettiğin `.glb` dosyasını otomatik bulup getirir**!
+   * Otomatik olarak **ipek yumuşatma (`Corrective Smooth`)**, **dövme çelik + parlayan mor kristal PBR materyali**, **3 noktalı karanlık ışıklandırma** ve **çamurlaşmayan akıcı `EEVEE` önizlemesini** açar!
+3. **İncele ve Onayla (`[2. ONAYLA -> Unreal Engine 5.8'e Gönder!]`):**
+   * Modeli fareyle çevirip bakarsın; yumuşatmasını artırmak/azaltmak istersen kaydırıcıdan ayarlarsın.
+   * İçine sindiği an **2. Butona (`ONAYLA`)** basarsın (veya AI'ya *"Onaylıyorum, Unreal'a at"* dersin) -> Model temizlenip `C:\KARARSIZLIK_UnrealBridge\AutoImport` klasörüne düşer ve **açık olan Unreal Engine 5.8.4 onu saniyesinde oyunun içine çeker!**
+   * *(Yerel `27B` AI `blender-mcp` ile bağlıyken şu iki komutu biliyor olacak: Önce `bpy.ops.kararsizlik.import_latest_comfy()` çalıştırıp ekran görüntüsünü sana gösterecek, **sen "onaylıyorum" demeden ASLA** `bpy.ops.kararsizlik.approve_export_unreal()` çalıştırmayacak!)*
+
+---
+
 ### 📋 Adım Adım Geliştirme Yol Haritası (Arkadaş Geldiğinde Başlanacak)
 1. **Hikâye & Görsel Kimlik Toplantısı:**
    - [ ] Arkadaşla birlikte İmparatorun tam kapalı maskesi (IV. Baldwin tarzı vakur gümüş/çelik maske mi, başka bir form mu), dinin sembolü, Can Eşyası ve Checkpoint heykellerinin kesin tasarımına karar verilecek.
