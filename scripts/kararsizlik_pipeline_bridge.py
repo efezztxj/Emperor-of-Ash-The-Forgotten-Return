@@ -19,7 +19,7 @@ Kullanim:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (1, 1, 0),
+    "version": (1, 2, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
     "description": "ComfyUI TRELLIS.2 .glb ciktisini otomatik alir, karanlik PBR + yumusatma uygular ve onayla Unreal Engine 5.8'e aktarir.",
@@ -58,8 +58,8 @@ class KARARSIZLIK_Properties(PropertyGroup):
     )
     smooth_iterations: IntProperty(
         name="Yumusatma Gucu",
-        description="Corrective Smooth tekrar sayisi (0 = kapali, 10 = ideal ipek yumusatma)",
-        default=8,
+        description="Weld + Pin-Boundary Smooth tekrar sayisi (0 = kapali, 4 = ideal)",
+        default=4,
         min=0,
         max=40,
     )
@@ -115,14 +115,25 @@ def apply_dark_pbr_and_smooth(context, props):
         context.view_layer.objects.active = obj
         obj.select_set(True)
 
-        # 1. Otomatik Yumusatma (Corrective Smooth)
+        # 1. KRITIK ADIM: TRELLIS.2 ayrik UV dikis noktalarini kaynastir (Kılcal yarik acilmasini %100 onler!)
         if props.smooth_iterations > 0:
+            weld = obj.modifiers.get("KARARSIZLIK_WELD") or obj.modifiers.new(
+                name="KARARSIZLIK_WELD", type='WELD'
+            )
+            weld.merge_threshold = 0.0005
+
             mod = obj.modifiers.get("KARARSIZLIK_SMOOTH") or obj.modifiers.new(
                 name="KARARSIZLIK_SMOOTH", type='CORRECTIVE_SMOOTH'
             )
             mod.iterations = props.smooth_iterations
             mod.smooth_type = 'LENGTH_WEIGHTED'
             mod.use_only_smooth = True
+            mod.use_pin_boundary = True  # Acik kenarlarin ayrilip icinin gozukmesini kilitler!
+        else:
+            if "KARARSIZLIK_SMOOTH" in obj.modifiers:
+                obj.modifiers.remove(obj.modifiers["KARARSIZLIK_SMOOTH"])
+            if "KARARSIZLIK_WELD" in obj.modifiers:
+                obj.modifiers.remove(obj.modifiers["KARARSIZLIK_WELD"])
 
         try:
             bpy.ops.object.shade_auto_smooth()
@@ -134,6 +145,12 @@ def apply_dark_pbr_and_smooth(context, props):
             mat = slot.material
             if not mat or not mat.use_nodes:
                 continue
+            # Arka yuzeylerin saydam/bos gozukmesini onle (Double-Sided / Opaque)
+            mat.use_backface_culling = False
+            if hasattr(mat, "blend_method"):
+                mat.blend_method = 'OPAQUE'
+            if hasattr(mat, "surface_render_method"):
+                mat.surface_render_method = 'DITHERED'
             nodes = mat.node_tree.nodes
             links = mat.node_tree.links
 
