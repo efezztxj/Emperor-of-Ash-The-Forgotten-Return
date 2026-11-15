@@ -19,10 +19,10 @@ Kullanim:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (1, 2, 0),
+    "version": (1, 3, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "ComfyUI TRELLIS.2 .glb ciktisini otomatik alir, karanlik PBR + yumusatma uygular ve onayla Unreal Engine 5.8'e aktarir.",
+    "description": "ComfyUI TRELLIS.2 .glb ciktisini canli izler/alir, karanlik PBR + yumusatma uygular ve onayla Unreal Engine 5.8'e aktarir.",
     "category": "Import-Export",
 }
 
@@ -85,6 +85,14 @@ class KARARSIZLIK_Properties(PropertyGroup):
         name="Akici Oyun Motoru Onizlemesi (EEVEE - Camurlasma Yok)",
         description="Aciksa EEVEE gercek zamanli akici mod kullanir; kapaliysa Cycles sinema isin izleme kullanir",
         default=True,
+    )
+    auto_watch_active: BoolProperty(
+        name="Canli Klasor Izleyici Aktif",
+        default=False,
+    )
+    last_watched_mtime: FloatProperty(
+        name="Son Izlenen Dosya Zamani",
+        default=0.0,
     )
 
 
@@ -285,6 +293,59 @@ class KARARSIZLIK_OT_UpdateSettings(Operator):
         return {'FINISHED'}
 
 
+class KARARSIZLIK_OT_ToggleAutoWatch(Operator):
+    """ComfyUI 3D klasorunu 2 saniyede bir izler; yeni .glb uretildigi an el degmeden sahneye alip PBR kurar!"""
+    bl_idname = "kararsizlik.toggle_auto_watch"
+    bl_label = "Canli Oto-Yakalayiciyi Baslat / Durdur"
+
+    def execute(self, context):
+        props = context.scene.kararsizlik_props
+        if props.auto_watch_active:
+            props.auto_watch_active = False
+            self.report({'INFO'}, "KARARSIZLIK Canli Klasor Izleyici durduruldu.")
+            return {'FINISHED'}
+
+        folder = bpy.path.abspath(props.comfy_dir)
+        glb_files = glob.glob(os.path.join(folder, "*.glb")) + glob.glob(os.path.join(folder, "**", "*.glb"), recursive=True)
+        props.last_watched_mtime = max((os.path.getmtime(f) for f in glb_files), default=0.0)
+        props.auto_watch_active = True
+
+        if not bpy.app.timers.is_registered(_kararsizlik_watch_timer):
+            bpy.app.timers.register(_kararsizlik_watch_timer, first_interval=2.0)
+
+        self.report({'INFO'}, "CANLI IZLEYICI AKTIF! ComfyUI yeni .glb urettigi saniye otomatik sahneye gelecek!")
+        return {'FINISHED'}
+
+
+def _kararsizlik_watch_timer():
+    scene = getattr(bpy.context, "scene", None)
+    if not scene or not hasattr(scene, "kararsizlik_props"):
+        return 2.0
+    props = scene.kararsizlik_props
+    if not props.auto_watch_active:
+        return None
+
+    folder = bpy.path.abspath(props.comfy_dir)
+    if os.path.isdir(folder):
+        glb_files = glob.glob(os.path.join(folder, "*.glb")) + glob.glob(os.path.join(folder, "**", "*.glb"), recursive=True)
+        if glb_files:
+            latest_glb = max(glb_files, key=os.path.getmtime)
+            try:
+                mtime = os.path.getmtime(latest_glb)
+                size1 = os.path.getsize(latest_glb)
+            except OSError:
+                return 2.0
+
+            # Yeni ve yazimi tamamlanmis (>1 KB) bir .glb algilandiysa otomatik yukle!
+            if mtime > props.last_watched_mtime + 0.5 and size1 > 1024:
+                props.last_watched_mtime = mtime
+                try:
+                    bpy.ops.kararsizlik.import_latest_comfy()
+                except Exception as exc:
+                    print(f"[KARARSIZLIK Watch] Otomatik yukleme hatasi: {exc}")
+    return 2.0
+
+
 class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
     """Onaylanan modeli temizleyip Unreal Engine 5.8 Auto-Import klasorune aktarir"""
     bl_idname = "kararsizlik.approve_export_unreal"
@@ -363,6 +424,12 @@ class KARARSIZLIK_PT_MainPanel(Panel):
         box2.operator("kararsizlik.update_settings", icon='FILE_REFRESH')
 
         layout.separator()
+        col_watch = layout.column(align=True)
+        col_watch.scale_y = 1.4
+        watch_label = "🔴 CANLI OTO-YAKALAYICI AKTIF (Durdur)" if props.auto_watch_active else "🟢 Canli Oto-Yakalayiciyi Ac (Bekle & Getir)"
+        watch_icon = 'PAUSE' if props.auto_watch_active else 'PLAY'
+        col_watch.operator("kararsizlik.toggle_auto_watch", text=watch_label, icon=watch_icon, depress=props.auto_watch_active)
+
         col = layout.column(align=True)
         col.scale_y = 1.6
         col.operator("kararsizlik.import_latest_comfy", icon='IMPORT')
@@ -380,6 +447,7 @@ classes = (
     KARARSIZLIK_Properties,
     KARARSIZLIK_OT_ImportLatestComfy,
     KARARSIZLIK_OT_UpdateSettings,
+    KARARSIZLIK_OT_ToggleAutoWatch,
     KARARSIZLIK_OT_ApproveExportUnreal,
     KARARSIZLIK_PT_MainPanel,
 )

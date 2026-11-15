@@ -252,6 +252,18 @@ Kanka kod kopyalamayla bile uğraşma diye reponun içine **`scripts/kararsizlik
    * İçine sindiği an **2. Butona (`ONAYLA`)** basarsın (veya AI'ya *"Onaylıyorum, Unreal'a at"* dersin) -> Model temizlenip `C:\KARARSIZLIK_UnrealBridge\AutoImport` klasörüne düşer ve **açık olan Unreal Engine 5.8.4 onu saniyesinde oyunun içine çeker!**
    * *(Yerel `27B` AI `blender-mcp` ile bağlıyken şu iki komutu biliyor olacak: Önce `bpy.ops.kararsizlik.import_latest_comfy()` çalıştırıp ekran görüntüsünü sana gösterecek, **sen "onaylıyorum" demeden ASLA** `bpy.ops.kararsizlik.approve_export_unreal()` çalıştırmayacak!)*
 
+### C. Tek Cümleden Tam Otomatik Orkestra Şefi (`scripts/kararsizlik_oto_fabrika.py` + Blender `v1.3` Canlı Oto-Yakalayıcı!)
+Hiçbir tuşa basmadan **`Türkçe Fikir Yaz -> 2D Görsel Çizsin & Beklesin -> VRAM Temizlesin -> 3D .glb Modele Çevirsin & Beklesin -> Blender Otomatik Yakalayıp PBR + Işık Kursun -> Senin Onayınla Unreal'a Göndersin`** zinciri için:
+1. ComfyUI'de `Settings -> Enable Dev mode Options` açıp iki iş akışını `Workflow -> Export (API)` ile bir kere kaydet:
+   * `scripts/workflows/moss_2d_api.json`
+   * `scripts/workflows/trellis_3d_api.json`
+2. Blender 5.3.0'da `KARARSIZLIK` panelindeki **`[🟢 Canlı Oto-Yakalayıcıyı Aç (Bekle & Getir)]`** butonuna **1 kere bas** (Blender artık klasörü 2 saniyede bir dinler!).
+3. CMD'den şu tek satırı çalıştır:
+   ```bat
+   python scripts\kararsizlik_oto_fabrika.py "Kırık İmparator kılıcı, kararmış dövme demir ve mor rünlü"
+   ```
+   * Script önce MOSS-Image ile 2D görseli üretip bitmesini bekler, ardından **RTX 5080 (16 GB VRAM) şişmesin diye MOSS modelini otomatik VRAM'den boşaltır (`/free`)**, sonra TRELLIS.2 ile `.glb` 3D modeli üretip bekler; `.glb` bittiği salise açık olan Blender onu havada yakalayıp PBR çelik+kristal ve ışıkla karşına çıkarır!
+
 ---
 
 ### 📋 Adım Adım Geliştirme Yol Haritası (Arkadaş Geldiğinde Başlanacak)
