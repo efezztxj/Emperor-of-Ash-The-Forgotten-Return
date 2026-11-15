@@ -19,10 +19,10 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 5, 0),
+    "version": (2, 5, 1),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "4K Keskinlik + Ucan Toz Temizleyici (Clean Islands) + PBR Canli Metal Yansima (HDRI) Koprusu.",
+    "description": "Sifir-Delik 4K PBR Koruyucu (Mikro parcalari asla silmez!) & Unreal 5.8 koprusu.",
     "category": "Import-Export",
 }
 
@@ -137,9 +137,9 @@ class KARARSIZLIK_Properties(PropertyGroup):
         max=40,
     )
     clean_floating_crumbs: BoolProperty(
-        name="Havada Ucan Toz/Parcaciklari Supur",
-        description="Pelerin/bacak etrafinda asili kalan o kucuk kopuk poligon kirintilarini tek tikla temizler",
-        default=True,
+        name="Mikro Toz Supurucu (Sadece <=3 Ucgen, Varsayilan Kapali)",
+        description="Kapali tut! Acik olursa zirhtaki ayri percin/parmak parcalarini silebilir",
+        default=False,
     )
     lighting_brightness: FloatProperty(
         name="Studyo & Metal Canliligi (Bogukluk Açar!)",
@@ -296,16 +296,14 @@ def repair_trellis_cracks_and_normals(obj, weld_ratio: float, force: bool = Fals
         bm.free()
 
 
-def remove_floating_crumbs_bmesh(obj, min_face_ratio: float = 0.0004):
-    """Pelerin ve bacak cevresinde havada asili kalan o kucuk sari/turuncu nokta poligon kirintilarini (floating islands) siler!"""
+def remove_floating_crumbs_bmesh(obj, max_crumb_faces: int = 3):
+    """Sadece en fazla 3 ucgenlik mikroskobik tozlari siler; zirh/parmak adalarina ASLA dokunmaz!"""
     if obj.type != 'MESH' or obj.name.startswith("UCX_") or len(obj.data.polygons) < 100:
         return
     bm = bmesh.new()
     try:
         bm.from_mesh(obj.data)
         bm.faces.ensure_lookup_table()
-        total_faces = len(bm.faces)
-        min_faces = max(8, int(total_faces * min_face_ratio))
 
         visited = set()
         islands = []
@@ -326,10 +324,9 @@ def remove_floating_crumbs_bmesh(obj, min_face_ratio: float = 0.0004):
             islands.append(comp)
 
         if len(islands) > 1:
-            biggest = max(len(c) for c in islands)
             to_del = []
             for comp in islands:
-                if len(comp) < biggest and len(comp) < min_faces:
+                if len(comp) <= max_crumb_faces:
                     to_del.extend(comp)
             if to_del:
                 bmesh.ops.delete(bm, geom=to_del, context='FACES')
@@ -710,8 +707,8 @@ class KARARSIZLIK_OT_ResetDefaults(Operator):
         props.target_tris = 0
         props.color_saturation = 1.0
         props.seam_weld_distance = 0.0
-        props.smooth_iterations = 1
-        props.clean_floating_crumbs = True
+        props.smooth_iterations = 0
+        props.clean_floating_crumbs = False
         props.lighting_brightness = 1.35
         props.solidify_thickness = 0.0
         props.bump_strength = 0.22
@@ -866,7 +863,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.5"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.5.1"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
