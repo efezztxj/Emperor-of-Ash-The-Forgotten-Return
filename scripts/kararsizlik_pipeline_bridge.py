@@ -19,10 +19,10 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 3, 2),
+    "version": (2, 4, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "UV-Koruyucu Sifir-Beneklenme PBR (0.1 sn!), Evrensel Renk ve Unreal 5.8 koprusu.",
+    "description": "Gercek 4K ComfyUI PBR Koruyucu (Base+Metal+Rough+Normal+AO silmez!) & Unreal 5.8 koprusu.",
     "category": "Import-Export",
 }
 
@@ -81,15 +81,16 @@ class KARARSIZLIK_Properties(PropertyGroup):
     )
     material_profile: EnumProperty(
         name="Materyal Profili",
-        description="Modelin orijinal rengini koruyan evrensel fiziksel PBR profilleri (Konsept esyaya bagimli degildir!)",
+        description="ComfyUI'dan gelen gercek 4K PBR dokulari korur veya dokusuz modeller icin prosedurel PBR uretir",
         items=[
-            ('UNIVERSAL_ORIGINAL', "Evrensel Orijinal PBR (Varsayilan — Her Model!)", "Modelin kendi rengine hic dokunmaz (1.0 sadakat), dogal puruzluluk ve kabartma verir"),
-            ('PURE_METAL', "Saf Ortacag Metali (Kilic / Zirh / Kalkan — Parlamasiz)", "Deri kabza ile celik namluyu ayirir, yapay parlama EKLEMEZ, kendi renginde gercek celik yapar"),
-            ('STONE_RUIN', "Tas / Harabe / Heykel", "Sifir metalik, dogal mat tas puruzlulugu ve guclu yuzey kabartmasi"),
-            ('WOOD_LEATHER', "Ahsap / Deri / Kiyafet / Karakter", "Sifir metalik, sifir parlama, dogal organik yuzey"),
-            ('ARCANE_GLOW', "Buyulu / Kristalli Esya (Ozel Renk Parlamali)", "Modelin uzerindeki doygun renkteki rün/kristal kisimlarini kendi renginde parlatir"),
+            ('COMFY_4K_PBR', "ComfyUI Gercek 4K PBR Koru! (Varsayilan — En Yuksek Kalite!)", "ComfyUI'da pisirilen 4K BaseColor + Metallic + Roughness + Normal Map + AO dokularina HIC DOKUNMAZ, cam gibi korur!"),
+            ('UNIVERSAL_ORIGINAL', "Prosedurel: Evrensel PBR (Sadece Tek Resimli Modeller Icin)", "Eger modelde Normal/Roughness haritasi yoksa tek resimden uretir"),
+            ('PURE_METAL', "Prosedurel: Saf Ortacag Metali (Parlamasiz)", "Tek resimden deri kabza ile celik namluyu ayirir"),
+            ('STONE_RUIN', "Prosedurel: Tas / Harabe / Heykel", "Sifir metalik, dogal mat tas puruzlulugu"),
+            ('WOOD_LEATHER', "Prosedurel: Ahsap / Deri / Kiyafet", "Sifir metalik, dogal organik yuzey"),
+            ('ARCANE_GLOW', "Prosedurel: Buyulu / Kristalli Esya", "Doygun renkteki rün/kristal kisimlarini kendi renginde parlatir"),
         ],
-        default='UNIVERSAL_ORIGINAL',
+        default='COMFY_4K_PBR',
     )
     pivot_preset: EnumProperty(
         name="Pivot (Tutma / Merkez) Noktasi",
@@ -382,7 +383,20 @@ def apply_dark_pbr_and_smooth(context, props, run_mesh_repair: bool = False):
             links = mat.node_tree.links
 
             bsdf = next((n for n in nodes if n.type == 'BSDF_PRINCIPLED'), None)
-            tex_node = next((n for n in nodes if n.type == 'TEX_IMAGE'), None)
+            all_tex_nodes = [n for n in nodes if n.type == 'TEX_IMAGE']
+
+            # Eger COMFY_4K_PBR seciliyse ve modelde ComfyUI'in pisirdigi 4K Normal/Metallic/Roughness haritalari varsa ASLA SILME!
+            if profile == 'COMFY_4K_PBR' and bsdf and len(all_tex_nodes) >= 1:
+                # Tum doku dugumlerini en keskin filtrelemeye (Cubic) al
+                for tn in all_tex_nodes:
+                    tn.interpolation = 'Cubic'
+                # Normal Map dugumu varsa gucunu ayarlanabilir tut (1.0 dogal)
+                norm_node = next((n for n in nodes if n.type == 'NORMAL_MAP'), None)
+                if norm_node and 'Strength' in norm_node.inputs:
+                    norm_node.inputs['Strength'].default_value = max(0.5, props.bump_strength * 4.5)
+                continue
+
+            tex_node = all_tex_nodes[0] if all_tex_nodes else None
 
             if bsdf and tex_node:
                 for old_n in [n for n in list(nodes) if n not in (bsdf, tex_node) and n.type != 'OUTPUT_MATERIAL']:
@@ -627,15 +641,16 @@ class KARARSIZLIK_OT_ResetDefaults(Operator):
 
     def execute(self, context):
         props = context.scene.kararsizlik_props
+        props.material_profile = 'COMFY_4K_PBR'
         props.target_height_m = 0.0
         props.target_tris = 0
         props.color_saturation = 1.0
         props.seam_weld_distance = 0.0
-        props.smooth_iterations = 4
+        props.smooth_iterations = 2
         props.solidify_thickness = 0.0
-        props.bump_strength = 0.18
+        props.bump_strength = 0.22
         props.double_sided_preview = True
-        self.report({'INFO'}, "Altin ayarlar yuklendi! Simdi '1. Son ComfyUI Modelini Getir' tusuna bas.")
+        self.report({'INFO'}, "Gercek 4K ComfyUI PBR altin ayarlari yuklendi! '1. Son ComfyUI Modelini Getir' tusuna bas.")
         return {'FINISHED'}
 
 
@@ -785,7 +800,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.3.2"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.4"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
