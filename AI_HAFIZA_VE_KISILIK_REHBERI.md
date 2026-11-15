@@ -278,22 +278,47 @@ Kullanıcı CMD yerine doğrudan **LM Studio sohbet penceresinden** Bionic'e *"B
 }
 ```
 * **Önemli VRAM İpucu (RTX 5080 - 16 GB):** ComfyUI ile aynı anda çalışırken 16 GB VRAM dolmasın diye LM Studio'da ya **`9B`** modelini açık tut ya da **`Bionic 27B`** yüklerken `GPU Offload` kaydırıcısını yarı yarıya (~15-20 katman GPU, kalanı Sistem RAM'i — Ryzen 7 7800X3D çok hızlı olduğu için saniyesinde yanıt verir!) ayarla!
+* **Tercih Edilen Ana Çalışma Modu (Manuel & Güvenli Akış):** Tüm oyun dosyaları sadece tek bilgisayarda (`D:\UE5_Projects` + `D:\UE5_DDC`, toplam ~420 GB boş SSD alanı) tutulacaktır; 2 kişilik Git LFS dosya birleştirme karmaşasına gerek yoktur (arkadaş hikâye ve tasarım beyin fırtınasında yer alacaktır). 3D üretimde de arka plan otomasyonu yerine elle kontrollü `ComfyUI (MOSS-Image -> TRELLIS.2) -> Blender KARARSIZLIK Paneli (1. Buton PBR+Weld Yumuşatma -> 2. Buton Onaylı Unreal Aktarımı)` iş akışı önceliklidir.
+* **Ekran Kartı Coil Whine / Performans Notu:** RTX 5080 boş sahnede 500+ FPS bastığında bobin vızıltısı (*coil whine*) yapmaması için NVIDIA Denetim Masası -> `Maksimum Kare Hızı = 120 / 144 FPS` sınırı önerilir.
 
 ---
 
-### 📋 Adım Adım Geliştirme Yol Haritası (Arkadaş Geldiğinde Başlanacak)
-1. **Hikâye & Görsel Kimlik Toplantısı:**
-   - [ ] Arkadaşla birlikte İmparatorun tam kapalı maskesi (IV. Baldwin tarzı vakur gümüş/çelik maske mi, başka bir form mu), dinin sembolü, Can Eşyası ve Checkpoint heykellerinin kesin tasarımına karar verilecek.
-   - [ ] Başlangıç kasabası/şehrinin adı, 3 ana grubun (Aydınlık, Karanlık, Kararsızlar) liderleri ve ilk 3 Boss'un kişilikleri yazılacak.
-2. **3D Üretim Şablonlarının Sabitlenmesi:**
-   - [ ] TRELLIS.2'de yüksek kalite ayarları (`simplify` azaltılmış, `4K texture`, `steps: 25-30`) sabit şablon olarak kaydedilecek.
-   - [ ] Her üretilen kılıç, kalkan, yay ve heykel `scripts/blender_trellis_pbr_upgrader.py` ile PBR materyale yükseltilip Unreal Engine `5.8.4`'e aktarılacak.
-3. **Unreal Engine 5 Çekirdek Sistemlerin Kurulumu (Dikey Kesit / Vertical Slice):**
-   - [ ] Temel karakter kontrolcüsü: Akıcı kılıç/hançer kombosu (animasyon iptalli), kalkan blok/parry, yay ile nişan alma ve ilk Kararsızlık büyüsü.
-   - [ ] Merkezi `GameplayTags` + `SaveGame` seçim hafızası altyapısı ve 10'lu durum tepkili JSON NPC diyalog sistemi.
-   - [ ] Bayılma / Kâbus sekansı geçiş sistemi ve Checkpoint etkileşimi.
-4. **350 Metrelik Başlangıç Haritasının İnşası:**
-   - [ ] UE5 Landscape ile *Uyanış Ormanı -> Dar Patika -> İlk İmparator Heykeli Checkpoint -> Köprü Mini-Boss (İlk Ahlaki Seçim) -> Sisli Karanlık Şehir Kapısı* gri kutu (Greybox) testi yapılacak.
-   - [ ] Doğal çevre (ağaç, kaya, çamur, hacimsel sis) yerleştirilecek; özel yapılar ComfyUI (`MOSS-Image` -> `TRELLIS.2`) + Blender üzerinden haritaya eklenecek.
-5. **Ses & Atmosfer Cilası:**
-   - [ ] Kılıç, yay, adım, orman rüzgârı sesleri (`MetaSounds`) ve Kararsızlık Hükümdarı'nın yankılı dış ses seslendirmesi eklenecek.
+## 9. Başlangıç Bölgesi, UI/Ana Menü, Animasyon & Oyun İçi Sinematik Mimarisi
+
+### A. Oyunun Çalışma Başlığı & Arayüz (`HUD` ve `Main Menu`) Kararları
+* **Çalışma Başlığı / Menü Logosu:** Arayüz ve Ana Menüde Türkçe "Kararsızlık" yerine uluslararası karanlık ortaçağ ağırlığı taşıyan **`EMPEROR OF ASH`** *(alt başlık: `THE FORGOTTEN RETURN`)* taş/gümüş oyma serif tipografisi baz alınacaktır (nihai isim daha sonra kesinleşebilir; kendi özgün UI çerçevelerimizi kendimiz tasarlayacağız).
+* **Oyun İçi HUD Yerleşimi (*Lords of the Fallen 2023* İlhamlı Özgün Düzen):**
+  * **Sol Üst:** İnce kararmış gümüş çerçeve içinde Can (`HP` - koyu kan kırmızısı), Dayanıklılık (`Stamina` - küllü kehribar) ve ince dumanlı mor Odak/Kararsızlık barı.
+  * **Sol Alt (4'lü Elmas Hızlı Eşya Yuvası):** Üst ana yuvada Can Eşyası (İdol + kalan kullanım sayısı), solda aktif Kılıç/Kalkan/Yay, sağda aktif Büyü/Keşiş mührü, altta fırlatma bıçağı/sargı gibi kullanılabilir eşyalar.
+  * **Sağ Alt:** Minimal Kül Parası / Hafıza Kırıntısı sayacı.
+* **Canlı 3D Ana Menü (`Main Menu`):** Düz 2D resim yerine doğrudan Unreal Engine 5.8.4 içinde canlı 3D sahne (sarmaşıklı sisli ormanda yüzsüz İmparator anıtı, uçuşan küller, saplı kılıç ve dumanlı mor kristal) + kesintisiz (*yükleme ekransız*) oyuna geçiş.
+
+### B. Giriş / Uyanış Sahnesi (`Opening Level`)
+* **Mekân:** İki sıska **Gri Yaratığın** karakteri Kararsızlık Evreni'nden çıkarıp bıraktığı, **kalın sarmaşıklarla kaplı karanlık ve sisli bir orman açıklığı**; ağaçların ve yıkık taş kemerin hemen ilerisinde (~150-200m) sislerin içinden fener ışıkları görünen **küçük ortaçağ şehri/kasabası**.
+
+### C. 4 Katmanlı Oyun İçi Animasyon & Sinematik (`Cutscene`) Sistemi
+1. **Temel Hareketler (Yürüme, Koşma, Dodge, Tırmanma):** Unreal Engine `Game Animation Sample Project (GASP)` + `IK Retargeter`.
+2. **Kılıç, Hançer, Kalkan, Yay & Büyü Komboları:** `Fab / Mixamo / ActorCore` gerçek mocap kütüphaneleri + özel imza vuruşlar için ücretsiz **`Cascadeur`** (yapay zekâ fizik destekli poz tamamlama) + UE5 `AnimMontage` (`AnimNotify` ile Hitbox ve Animasyon İptali pencereleri).
+3. **Ucube Yaratık & Boss Animasyonları (Örümcek Bacaklı Yaratık, Birleşmiş Cesetler):** El ile kare kare animasyon yerine UE 5.8 **`Control Rig` (Prosedürel IK ile zemine/duvara otomatik basan çoklu bacaklar)** + **`AnimDynamics / Chaos Cloth`** (sarkan ters saçlar ve çoklu kolların gerçek fizikle sallanması) + NPC yüzlerinde `Shape Key` (*Zoraki Gülümseme & Titreme*).
+4. **Oyun İçi Sinematikler (`Cutscenes` — Önceden Render `.mp4` Video YOK!):**
+   * Tüm ara sahneler (Baş büyücünün mahzendeki mor patlaması, ormanda uyanış ve çalılara kaçan Gri Yaratıklar, Boss girişleri, kâbus sekansları) **Unreal Engine 5.8.4 `Level Sequencer` + `Cine Camera Actor`** (`35mm/50mm/85mm` gerçek sinema lensi ve alan derinliği) ile oyun motorunun içinde gerçek zamanlı çekilir.
+   * Özel oyunculuk gerektiren sahneler telefon kamerasıyla çekilip ücretsiz AI Video-to-Mocap (`GVHMR` / `Rokoko Video`) ile `.fbx` iskelete aktarılır; konuşma ve yüz mimikleri **UE 5.8 `MetaHuman Animator` (`Audio-to-Face`)** ile ses dalgasından otomatik üretilir.
+   * Sinematik bittiğinde kamera kesintisiz (*God of War* tarzı siyah ekransız) karakterin omuz arkasına kayarak kontrolü doğrudan oyuncuya devreder!
+
+### D. Disk & Boyut Bütçesi (`D:\UE5_Projects` & `D:\UE5_DDC`)
+* Geliştirme sırasında SSD üzerinde önbellekle birlikte `~60–100 GB` (`D:` diskindeki `224 GB` boş alan fazlasıyla yeterli); oyunculara çıkacak paketlenmiş (`IoStore + Oodle` sıkıştırmalı) bitmiş oyun boyutu kapsamına göre tahmini **`15 GB – 28 GB`** (ilk oynanabilir dikey kesit demo `4–8 GB`).
+
+---
+
+### 📋 Adım Adım Geliştirme Sırası (Önce Mekanik Test Odası -> Sonra Sahne Giydirme!)
+1. **Adım 1 — UE 5.8.4 Ana Proje Kurulumu (`D:\UE5_Projects`):**
+   - [ ] `Third Person` şablonuyla projeyi aç, `Auto-Reimport` klasörünü ve **Ana Karanlık Metal & Kristal Master Material**'ı kur.
+2. **Adım 2 — Savaş Test Odası (`Combat Gym`):**
+   - [ ] Hedefe kilitlenme (`Target Lock-On`), `HP / Stamina / Odak` barları, Hançer/Kılıç/Kalkan/Yay kuşanma, animasyon iptalli akıcı Dodge/Blok, `Weapon Sweep Trace` hitbox + `0.05s Hitstop` ve İdol ile can basma mekaniğini gri kutu odada kusursuzlaştır.
+3. **Adım 3 — İlk Düşman, Diz Çöken Mini-Boss & Kararsızlık Seçim Hafızası:**
+   - [ ] UE 5.8 `StateTree` düşman yapay zekâsı, Boss canı `%5`'e inince diz çökme + Dış Ses fısıltısı + 4 seçim (`Öldür / Affet / Bırak / Teknik Öğren`) ve `GameplayTags + SaveGame` kayıt altyapısı.
+4. **Adım 4 — Bayılma -> Kâbus -> Gri Yaratıklar Döngüsü:**
+   - [ ] Can sıfırlanınca "Game Over" yerine Kâbus sekansına geçiş ve Gri Yaratıkların karakteri son İmparator Heykeli Checkpoint'ine taşıması.
+5. **Adım 5 — İlk 15 Dakikalık Oynanabilir Giriş Bölgesi (`Vertical Slice`) & Sinematik:**
+   - [ ] Sarmaşıklı karanlık orman uyanış sahnesi (`Level Sequencer` açılış sinematiği) -> İlk Heykel Checkpoint -> Taş Köprü Mini-Boss -> Sisli Küçük Şehir Kapısı, zorla gülümseyen ilk NPC'ler ve kendi özgün `EMPEROR OF ASH` Ana Menü / HUD tasarımımızın giydirilmesi.
+
