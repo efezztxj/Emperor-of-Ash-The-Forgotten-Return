@@ -130,20 +130,36 @@ def run_pipeline_tool(prompt_en: str, esya_adi: str) -> str:
 
 
 def approve_unreal_tool(esya_adi: str) -> str:
-    newest_glb = fabrika.find_newest_file(fabrika.COMFY_3D_OUTPUT, (".glb",), 0.0)
-    if not newest_glb:
-        return "HATA: ComfyUI 3d klasorunde aktarilacak .glb dosyasi bulunamadi!"
-
+    """Oncelikle Blender v2.0 Koprusunun olusturdugu temizlenmis (Weld+Smooth+Pivot+UCX) dosyayi arar!"""
     clean = "".join(c if c.isalnum() or c == "_" else "_" for c in esya_adi.strip()) or "Kararsizlik_Asset"
     if not clean.startswith("SM_"):
         clean = f"SM_{clean}"
 
     os.makedirs(fabrika.UNREAL_AUTOIMPORT_DIR, exist_ok=True)
-    dest = os.path.join(fabrika.UNREAL_AUTOIMPORT_DIR, f"{clean}.glb")
-    shutil.copy2(newest_glb, dest)
+
+    # 1. Oncelik: Blender v2.0 Koprusunun hazirladigi temizlenmis ApprovedStaging dosyalari (.fbx + .glb)
+    staged_fbx = fabrika.find_newest_file(fabrika.APPROVED_STAGING_DIR, (".fbx",), 0.0)
+    staged_glb = fabrika.find_newest_file(fabrika.APPROVED_STAGING_DIR, (".glb",), 0.0)
+    if staged_fbx or staged_glb:
+        copied = []
+        if staged_fbx:
+            dest_fbx = os.path.join(fabrika.UNREAL_AUTOIMPORT_DIR, f"{clean}.fbx")
+            shutil.copy2(staged_fbx, dest_fbx)
+            copied.append(dest_fbx)
+        if staged_glb:
+            dest_glb = os.path.join(fabrika.UNREAL_AUTOIMPORT_DIR, f"{clean}.glb")
+            shutil.copy2(staged_glb, dest_glb)
+            copied.append(dest_glb)
+        return (
+            f"ONAYLANDI VE AKTARILDI! Blender'da temizlenmis (Weld + Smooth + Pivot + UCX Collision) model "
+            f"Unreal Engine 5.8 AutoImport klasorune gonderildi:\n" + "\n".join(copied)
+        )
+
+    # Eger kullanici henuz Blender'da 2. Butona basmadiysa ham kopyalama YAPMA, once Blender temizligini iste!
     return (
-        f"ONAYLANDI VE AKTARILDI! Model Unreal Engine 5.8 AutoImport klasorune gonderildi: {dest}\n"
-        f"(Not: Blender icinde ozel yumusatma yaptiysan Blender'daki '2. ONAYLA' butonuna basarak yumusatilmis halini de uzerine yazabilirsin.)"
+        "UYARI: Henuz Blender temizligi (Weld + Pivot + UCX Collision) uygulanmamis! "
+        "Ham TRELLIS modeli dogrudan Unreal'a atilmadi. Lutfen Blender sag paneldeki (N -> KARARSIZLIK) "
+        "'2. ONAYLA -> Unreal Engine 5.8'e Gonder!' butonuna basarak temizlenmis modeli gonder."
     )
 
 

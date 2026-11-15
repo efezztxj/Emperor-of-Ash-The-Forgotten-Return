@@ -1,0 +1,12 @@
+{
+  "comfy_candidate_urls": [
+    "http://127.0.0.1:8188",
+    "http://127.0.0.1:8000"
+  ],
+  "lm_studio_api_url": "http://127.0.0.1:1234/v1/chat/completions",
+  "comfy_base_output": "C:\\Users\\efezz\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\output",
+  "comfy_3d_output": "C:\\Users\\efezz\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\output\\3d",
+  "approved_staging_dir": "D:\\UE5_Projects\\EmperorOfAsh_Bridge\\ApprovedStaging",
+  "unreal_autoimport_dir": "D:\\UE5_Projects\\EmperorOfAsh_Bridge\\AutoImport",
+  "comfy_timeout_seconds": 600
+}

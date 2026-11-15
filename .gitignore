@@ -1,0 +1,32 @@
+# ================= UNREAL ENGINE 5.8.4 =================
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+.vs/
+.vscode/
+.idea/
+*.VC.db
+*.opensdf
+*.opendb
+*.sdf
+*.sln
+*.suo
+*.xcodeproj
+*.xcworkspace
+**/Binaries/**
+**/DerivedDataCache/**
+**/Intermediate/**
+**/Saved/**
+
+# ================= PYTHON / BLENDER / LOCAL =================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.blend1
+*.blend2
+Unselected files/
+scripts/workflows/*.json

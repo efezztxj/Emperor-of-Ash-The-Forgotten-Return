@@ -41,7 +41,8 @@ Profesyonel oyun stüdyolarında bir oyun **6 kilit kapıdan (`Gate`)** geçerek
 | **Uzun Kılıç Standart Darbe** | `0.28 sn` | `0.14 sn` (Sweep Trace açık) | `0.20 sn`'den itibaren Dodge/Blok ile **iptal edilebilir!** |
 | **Kaçınma (`Dodge Step / Roll`)** | `0.05 sn` | **`0.35 sn` Tam Dokunulmazlık (`i-Frame`)** | Toplam süre `0.60 sn` |
 | **Kalkan Savuşturma (`Parry`)** | `0.08 sn` | **`0.18 sn` Aktif Parry Penceresi** | Başarılıysa düşmanda `1.8 sn` Denge Kırılması (*Stagger*) |
-| **İsabet Duraksaması (`Hitstop`)** | Hafif vuruş: `0.04 sn` | Ağır/Kritik vuruş: `0.08 sn` | Kamera mikro sarsıntısı + kan/kıvılcım Niagara efektiyle senkronize |
+| **İsabet Duraksaması (`Hitstop`)** | Hafif vuruş: `0.04 sn` | Ağır/Kritik vuruş: `0.08 sn` | **`SetGlobalTimeDilation` YASAK!** Sadece saldıran ve vurulan aktöre `CustomTimeDilation = 0.04f` uygulanır (kamera ve ses donmaz!). |
+| **Silah Taraması (`Weapon Sweep`)** | `BaseSocket` -> `TipSocket` | Önceki kare -> Şimdiki kare | Her tick'te önceki kare ile şimdiki kare arasında kapsül taraması atılır (*FPS düşüşünde tunneling engeller!*). |
 
 ---
 
@@ -49,12 +50,12 @@ Profesyonel oyun stüdyolarında bir oyun **6 kilit kapıdan (`Gate`)** geçerek
 
 Her Sprint **2 Haftalık** odaklanmış üretim dilimlerinden oluşur (**Önce Mekanik -> Sonra Sanat -> En Son Sinematik**):
 
-### 🟦 SPRINT 1: Motor Çekirdeği & Savaş Odası (`Combat Gym — Bölüm 1`)
-* [ ] **`ENG-01`** `D:\UE5_Projects\EmperorOfAsh` (UE `5.8.4`) kurulumu, klasör hiyerarşisi (`/Core`, `/Combat`, `/AI`, `/UI`, `/Art`, `/Cinematics`, `/Audio`).
-* [ ] **`ART-01`** `M_Master_DarkPBR` ana materyalinin kurulumu (Metalik, Roughness, Normal, Emission parametreleriyle).
-* [ ] **`CMB-01`** `GASP` tabanlı hareket + `Target Lock-On` (Düşmana kilitlenme ve etrafında strafe/adımlama kamerası).
-* [ ] **`CMB-02`** Silah kuşanma soketleri (`hand_r` Kılıç/Hançer, `hand_l` Kalkan/Yay) ve `Weapon Sweep Trace` çarpışma sistemi.
-* [ ] **`CMB-03`** 3'lü hafif kombo + 1 ağır saldırı + Animasyon İptali (`AnimNotifyState_CancelWindow`) + `Dodge i-Frame` + `Hitstop`.
+### 🟦 SPRINT 1: Hibrit C++/BP Motor Çekirdeği & Savaş Odası (`L_CombatGym — Bölüm 1`)
+* [ ] **`ENG-01`** `D:\UE5_Projects\EmperorOfAsh` (UE `5.8.4` C++ + Blueprint Hibrit proje) kurulumu, `.gitignore` + `Git LFS` aktif edilmesi ve `L_CombatGym` kilitli test odasının açılması (3 eğimli rampa, 1 sabit manken, 1 temel düşman, 1 diz çöken mini-boss).
+* [ ] **`ART-01`** `M_Kararsizlik_Master` ana materyalinin kurulumu (`MI_MetalCrystal`, `MI_StoneRuin`, `MI_WoodLeather` alt profilleri + karakter/düşman soğuk ay ışığı `Rim Light` konturu + dar `Auto Exposure` ve `ACES` tonemapper).
+* [ ] **`CMB-01`** C++ `UCombatComponent` + `GASP` tabanlı hareket + `Target Lock-On` (Düşmana kilitlenme ve strafe kamerası).
+* [ ] **`CMB-02`** Silah kuşanma soketleri (`hand_r` Kılıç/Hançer, `hand_l` Kalkan/Yay) ve önceki-kare -> şimdiki-kare `BaseSocket/TipSocket` kapsül taraması (`AnimNotifyState_WeaponHitbox`).
+* [ ] **`CMB-03`** 3'lü hafif kombo + 1 ağır saldırı + `AnimNotifyState_CancelWindow` + `Dodge i-Frame` + aktör bazlı `CustomTimeDilation` Hitstop.
 
 ### 🟦 SPRINT 2: Yay, Büyü, Can Eşyası ve Oyun Durum Hafızası (`Combat Gym — Bölüm 2`)
 * [ ] **`CMB-04`** Kalkan Blok (`Stamina` tüketimi) ve `Parry` (denge kırma + infaz vuruşu).
@@ -65,7 +66,7 @@ Her Sprint **2 Haftalık** odaklanmış üretim dilimlerinden oluşur (**Önce M
 ### 🟦 SPRINT 3: Düşman AI, Boss 4'lü Kararsızlık Seçimi & NPC Sistemi
 * [ ] **`AI-01`** UE 5.8 `StateTree` ile Yakın Dövüşçü Muhafız ve Okçu/Yaratık yapay zekâsı (devriye, fark etme, saldırı, blok).
 * [ ] **`AI-02`** Mini-Boss tasarımı + `%5 HP` Diz Çökme durumu -> Zaman yavaşlaması -> Güvenilmez Dış Ses -> **4'lü Kararsızlık Seçimi** (`Öldür / Affet / Bırak / Öğren`).
-* [ ] **`SYS-03`** JSON / DataTable tabanlı **10 Kişilik Tepkili** NPC Diyalog & Tereddüt Sayacı sistemi.
+* [ ] **`SYS-03`** JSON / CSV -> `DataTable` tabanlı ve **`FText / LOCTEXT` (Localization Dashboard — çoklu dil hazır)** **10 Kişilik Tepkili** NPC Diyalog, Hafıza Kırıntısı & Tereddüt Sayacı sistemi *(kod içine sabit metin gömmek YASAK!)*.
 * [ ] **`SYS-04`** Eğitmen (Trainer) başlangıç/bırakma altyapısı (terk edilen eğitmenin durum etiketinin değişmesi).
 
 ### 🟦 SPRINT 4: Ölümsüzlük, Bayılma, Kâbus Boyutu & Checkpoint Döngüsü

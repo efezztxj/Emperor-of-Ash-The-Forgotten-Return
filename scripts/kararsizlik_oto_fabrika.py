@@ -34,21 +34,42 @@ import urllib.parse
 import urllib.request
 
 
-# ================= KULLANICI KLASÖR VE PORT AYARLARI =================
-COMFY_CANDIDATE_URLS = [
-    "http://127.0.0.1:8000",  # ComfyUI Desktop varsayilan portu
-    "http://127.0.0.1:8188",  # Standart ComfyUI portu
-]
-LM_STUDIO_API_URL = "http://127.0.0.1:1234/v1/chat/completions"
-
-COMFY_BASE_OUTPUT = r"C:\Users\efezz\AppData\Local\Comfy-Desktop\ComfyUI-Shared\output"
-COMFY_3D_OUTPUT = os.path.join(COMFY_BASE_OUTPUT, "3d")
-UNREAL_AUTOIMPORT_DIR = r"C:\KARARSIZLIK_UnrealBridge\AutoImport"
-
+# ================= MERKEZİ KONFİGÜRASYON (`kararsizlik_config.json`) =================
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(SCRIPT_DIR, "kararsizlik_config.json")
+
+
+def _load_config() -> dict:
+    defaults = {
+        "comfy_candidate_urls": ["http://127.0.0.1:8188", "http://127.0.0.1:8000"],
+        "lm_studio_api_url": "http://127.0.0.1:1234/v1/chat/completions",
+        "comfy_base_output": r"C:\Users\efezz\AppData\Local\Comfy-Desktop\ComfyUI-Shared\output",
+        "comfy_3d_output": r"C:\Users\efezz\AppData\Local\Comfy-Desktop\ComfyUI-Shared\output\3d",
+        "approved_staging_dir": r"D:\UE5_Projects\EmperorOfAsh_Bridge\ApprovedStaging",
+        "unreal_autoimport_dir": r"D:\UE5_Projects\EmperorOfAsh_Bridge\AutoImport",
+        "comfy_timeout_seconds": 600,
+    }
+    if os.path.isfile(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                defaults.update(json.load(f))
+        except Exception:
+            pass
+    return defaults
+
+
+CFG = _load_config()
+COMFY_CANDIDATE_URLS = CFG["comfy_candidate_urls"]
+LM_STUDIO_API_URL = CFG["lm_studio_api_url"]
+COMFY_BASE_OUTPUT = CFG["comfy_base_output"]
+COMFY_3D_OUTPUT = CFG["comfy_3d_output"]
+APPROVED_STAGING_DIR = CFG["approved_staging_dir"]
+UNREAL_AUTOIMPORT_DIR = CFG["unreal_autoimport_dir"]
+COMFY_TIMEOUT_SECONDS = int(CFG.get("comfy_timeout_seconds", 600))
+
 MOSS_API_JSON = os.path.join(SCRIPT_DIR, "workflows", "moss_2d_api.json")
 TRELLIS_API_JSON = os.path.join(SCRIPT_DIR, "workflows", "trellis_3d_api.json")
-# =====================================================================
+# =====================================================================================
 
 
 DARK_PBR_STYLE_SUFFIX = (
@@ -123,31 +144,60 @@ def build_english_prompt(user_idea: str) -> str:
 
 
 def inject_prompt_into_moss_workflow(workflow: dict, prompt_text: str) -> dict:
+    """Sadece POZİTİF metin kutusunu hedefler; negatif prompt düğümüne ASLA dokunmaz!"""
     wf = json.loads(json.dumps(workflow))
     seed = random.randint(1, 2**31 - 1)
-    injected = False
 
-    for _node_id, node in wf.items():
+    # 1. Sampler/Guider uzerinden acikca 'positive' ve 'negative' bagli dugum ID'lerini tespit et
+    positive_ids = set()
+    negative_ids = set()
+    for _nid, node in wf.items():
         if not isinstance(node, dict):
             continue
         inputs = node.get("inputs", {})
-        class_type = str(node.get("class_type", ""))
-
-        # Seed guncelle
-        for s_key in ("seed", "noise_seed"):
+        for s_key in ("seed", "noise_seed", "prompt_enhancer_seed"):
             if s_key in inputs and isinstance(inputs[s_key], int):
                 inputs[s_key] = seed
+        if isinstance(inputs.get("positive"), list) and inputs["positive"]:
+            positive_ids.add(str(inputs["positive"][0]))
+        if isinstance(inputs.get("negative"), list) and inputs["negative"]:
+            negative_ids.add(str(inputs["negative"][0]))
 
-        # Pozitif metin kutusunu bul ve promptu yaz (Bos olan negatif kutuya dokunma!)
-        if "CLIPTextEncode" in class_type or "TextEncode" in class_type or "Prompt" in class_type:
+    injected = False
+
+    # 2. Oncelikle dogrudan Sampler'in 'positive' girisine bagli dugumu guncelle
+    for pid in positive_ids:
+        if pid in wf and isinstance(wf[pid], dict):
+            p_inputs = wf[pid].get("inputs", {})
             for t_key in ("text", "prompt", "string"):
-                if t_key in inputs and isinstance(inputs[t_key], str) and len(inputs[t_key].strip()) > 3:
-                    inputs[t_key] = prompt_text
+                if t_key in p_inputs and isinstance(p_inputs[t_key], str):
+                    p_inputs[t_key] = prompt_text
                     injected = True
                     break
+        if injected:
+            break
+
+    # 3. Eger ozel bir dugum yapisi varsa _meta.title kontroluyle (negatifleri dislayarak) SADECE 1 pozitif dugume yaz!
+    if not injected:
+        for nid, node in wf.items():
+            if str(nid) in negative_ids or not isinstance(node, dict):
+                continue
+            title = str(node.get("_meta", {}).get("title", "")).lower()
+            if "neg" in title or "olumsuz" in title:
+                continue
+            class_type = str(node.get("class_type", ""))
+            inputs = node.get("inputs", {})
+            if "CLIPTextEncode" in class_type or "TextEncode" in class_type or "Prompt" in class_type:
+                for t_key in ("text", "prompt", "string"):
+                    if t_key in inputs and isinstance(inputs[t_key], str) and len(inputs[t_key].strip()) > 0:
+                        inputs[t_key] = prompt_text
+                        injected = True
+                        break
+            if injected:
+                break
 
     if not injected:
-        print("[UYARI] MOSS workflow icinde metin dugumu otomatik bulunamadi; varsayilan metinle calisacak.")
+        print("[UYARI] MOSS workflow icinde pozitif metin dugumu otomatik bulunamadi; varsayilan metinle calisacak.")
     return wf
 
 
@@ -195,7 +245,7 @@ def upload_image_to_comfy(comfy_url: str, filepath: str) -> str:
         return res.get("name", filename)
 
 
-def queue_and_wait_comfy(comfy_url: str, workflow: dict, step_title: str) -> dict:
+def queue_and_wait_comfy(comfy_url: str, workflow: dict, step_title: str, timeout_sec: int = COMFY_TIMEOUT_SECONDS) -> dict:
     payload = json.dumps({"prompt": workflow}).encode("utf-8")
     req = urllib.request.Request(
         f"{comfy_url}/prompt",
@@ -203,22 +253,37 @@ def queue_and_wait_comfy(comfy_url: str, workflow: dict, step_title: str) -> dic
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        prompt_id = json.loads(resp.read().decode("utf-8"))["prompt_id"]
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            prompt_id = json.loads(resp.read().decode("utf-8"))["prompt_id"]
+    except urllib.error.HTTPError as exc:
+        err_body = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"[{step_title}] ComfyUI is akisi reddedildi ({exc.code}): {err_body}") from exc
 
     print(f"⏳ [{step_title}] ComfyUI kuyruga alindi (ID: {prompt_id[:8]}...), bitmesi bekleniyor...")
     start = time.time()
     while True:
+        elapsed = time.time() - start
+        if elapsed > timeout_sec:
+            raise TimeoutError(f"[{step_title}] {timeout_sec} saniye zaman asimina ugradi!")
+
         time.sleep(2.5)
         try:
             with urllib.request.urlopen(f"{comfy_url}/history/{prompt_id}", timeout=10) as h_resp:
                 hist = json.loads(h_resp.read().decode("utf-8"))
-                if prompt_id in hist:
-                    elapsed = int(time.time() - start)
-                    print(f"✅ [{step_title}] Tamamlandi! ({elapsed} saniye)")
-                    return hist[prompt_id]
         except Exception:
-            pass
+            continue
+
+        if prompt_id in hist:
+            entry = hist[prompt_id]
+            status_info = entry.get("status", {}) or {}
+            status_str = str(status_info.get("status_str", "")).lower()
+            if status_str == "error":
+                msgs = status_info.get("messages", [])
+                raise RuntimeError(f"[{step_title}] ComfyUI yurutme hatasi verdi: {msgs}")
+
+            print(f"✅ [{step_title}] Tamamlandi! ({int(elapsed)} saniye)")
+            return entry
 
 
 def free_comfy_vram(comfy_url: str):

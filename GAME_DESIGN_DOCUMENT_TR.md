@@ -137,15 +137,19 @@ Oyuncuyu sadece büyük diyaloglarda değil, **en ufak oyun içi eylemde bile** 
 ### 7.2. Adım Adım 3D, Animasyon, VFX ve Ses Üretim Hattı
 1. **2D Konsept & Referans:** ComfyUI `MOSS-Image` (`steps: 45-50, cfg: 3.2`, nötr gri arka planlı fotogerçekçi PBR referansı).
 2. **3D Model Üretimi:** ComfyUI `TRELLIS.2` (`.glb` çıktısı).
-3. **PBR Yükseltme & Yumuşatma Köprüsü:** Blender `5.3.0` (`scripts/kararsizlik_pipeline_bridge.py` özel eklentisi ile `Weld + Pin-Boundary Smooth`, kararmış çelik + parlayan kristal PBR kurulumu ve kullanıcı onayıyla Unreal `AutoImport` klasörüne aktarım).
-4. **Animasyon & Sinematik:**
-   * *İnsan Hareketleri:* UE 5.8 `Game Animation Sample (GASP)` + `Mixamo / Fab` mocap + `Cascadeur` AI fizik düzeltme.
-   * *Grotesk Yaratıklar:* UE 5.8 `Control Rig` (Prosedürel çok bacaklı IK) + `AnimDynamics / Chaos Cloth` fiziksel kol/saç salınımı.
-   * *Sinematikler:* UE 5.8 `Level Sequencer` + `Cine Camera Actor` + Telefon videosundan AI Mocap + `MetaHuman Audio-to-Face`.
-5. **Efektler (VFX) & Ses:**
-   * *Sis, Buhar & Büyü:* `Exponential Height Fog (Volumetric)` + `Niagara` parçacık sistemleri + el/silah yanma *Dissolve Shader*'ları.
-   * *Ses & Müzik:* UE 5.8 `MetaSounds` dinamik katmanlı müzik/vuruş sesleri + yerel AI TTS ile yankılı Dış Ses / Boss seslendirmeleri.
-6. **Kayıt & Seçim Hafızası:** Merkezi `UGameInstanceSubsystem` + `GameplayTags` (`World.Boss.X.Spared`, `Player.Trainer.Y.Abandoned`, `Player.HesitationScore`).
+3. **PBR Önizleme, Mesh Standartlaştırma & UE 5.8 Köprüsü (`scripts/kararsizlik_pipeline_bridge.py v2.0`):**
+   * Blender tarafında **3 Materyal Profili** (`Metal + Kristal`, `Taş / Harabe`, `Ahşap / Deri`), **Otomatik Pivot Standardı** (`Zemin Z=0` heykel/yapı, `Alttan %22 Kabza` silah/kılıç, `Merkez`), **Poligon Bütçesi (`Decimate` — silahlar 5K–15K, yaratıklar 25K–50K)**, tek taraflı manifold kontrolü ve otomatik **`UCX_` dışbükey çarpışma kabuğu** üretilir (`FBX + GLB` çıktısı).
+   * `.glb/.fbx` Blender prosedürel düğüm zincirlerini doğrudan taşımadığı için aynı HSV -> Metal/Roughness/Emission/Normal mantığı Unreal Engine `5.8.4` içinde tek bir **`M_Kararsizlik_Master`** ana materyali olarak kurulur (`MI_MetalCrystal`, `MI_StoneRuin`, `MI_WoodLeather` alt örnekleriyle).
+4. **Unreal Engine `5.8.4` Hibrit C++ & Blueprint Mimarisi (Spagetti Kodu Önleme Standardı):**
+   * **C++ Çekirdeği (`Fast & Clean` — Ağır GAS karmaşası olmadan):** `UCombatComponent` (Stamina, i-frame, `AnimNotifyState` iptal penceresi, önceki kare ile şimdiki kare arasında `BaseSocket -> TipSocket` kapsül taraması — *FPS düşüşünde tunneling engeller!*), **Hitstop** (`SetGlobalTimeDilation` YASAK; sadece vuran ve vurulan aktöre `CustomTimeDilation = 0.04f` uygulanır ki kamera ve ses donmasın!), `UGameInstanceSubsystem` + Native `GameplayTags` ve `SaveGame` serileştirme.
+   * **Blueprint & Veri Güdümlü (`Data-Driven`) Katman:** Görsel karakter kurulumu, `AnimBlueprint`, `StateTree` görevleri, `Level Sequencer`, `UMG` arayüzü. Tüm NPC 10-durumlu diyalogları, Hafıza Kırıntıları, Dış Ses replikleri ve eşya Trade-off verileri **CSV/JSON -> `DataTable`** üzerinde ve en baştan **`FText / LOCTEXT` (Localization Dashboard — çoklu dil uyumlu)** olarak tutulur.
+5. **"Karanlık Ama %100 Okunabilir" Işıklandırma Kuralları (`Lumen + ACES`):**
+   * `PostProcessVolume` içinde **Auto Exposure (`Min/Max EV100`)** çok dar tutulur veya sabitlenir (karanlıktan ışığa çıkınca 2 sn ekran körlüğü önlenir).
+   * Düşman saldırı ve `Parry` pencerelerinin karanlık ormanda net okunması için karakter ve düşman materyallerinde çok hafif soğuk ay ışığı **`Fresnel / Rim Light`** kullanılır.
+   * Mor Kararsızlık büyülerinin ucuz neon pembe patlamaması için **ACES Filmic Tonemapper** altında doygunluğu kontrollü (`Emissive 2.0–5.0`) dumanlı ametist değerleri kullanılır.
+6. **Animasyon, VFX & Ses:**
+   * *İnsan & Yaratık Hareketleri:* `GASP` + `Mixamo / Fab` + `Cascadeur` AI fizik + `Control Rig` (Prosedürel çok bacaklı IK) + `AnimDynamics / Chaos Cloth`.
+   * *Sinematikler & Ses:* `Level Sequencer` + `Cine Camera` + `MetaHuman Audio-to-Face` + `Exponential Height Fog` + `Niagara` + `MetaSounds`.
 
 ---
 
