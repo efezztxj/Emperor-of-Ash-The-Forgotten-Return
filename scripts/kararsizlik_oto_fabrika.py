@@ -75,7 +75,7 @@ TRELLIS_API_JSON = os.path.join(SCRIPT_DIR, "workflows", "trellis_3d_api.json")
 DARK_PBR_STYLE_SUFFIX = (
     ", single standalone dark medieval artifact centered on a clean neutral grey background, "
     "full object visible from top to bottom, museum-grade photorealistic 3D scan reference, "
-    "weathered hand-forged blackened iron, tarnished aged bronze, subtle deep smoky amethyst crystal, "
+    "authentic weathered materials (forged steel, aged leather, carved stone, or wood matching the object), "
     "physically based material definition, zero motion blur, no hands, no text, NOT stylized MMO"
 )
 

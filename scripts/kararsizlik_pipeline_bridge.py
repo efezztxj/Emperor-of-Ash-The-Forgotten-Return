@@ -19,10 +19,10 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 0, 0),
+    "version": (2, 1, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "TRELLIS.2 .glb ciktisini materyal profili, pivot standardi, poligon butcesi ve UCX carpismasiyla hazirlayip Unreal 5.8'e aktarir.",
+    "description": "Evrensel PBR (Orijinal renk koruyucu), pivot standardi, poligon butcesi ve UCX carpismasiyla TRELLIS.2 -> Unreal 5.8 koprusu.",
     "category": "Import-Export",
 }
 
@@ -80,13 +80,15 @@ class KARARSIZLIK_Properties(PropertyGroup):
     )
     material_profile: EnumProperty(
         name="Materyal Profili",
-        description="Modelin fiziksel yuzey turunu sec (Tas heykelleri metal yapmamak icin!)",
+        description="Modelin orijinal rengini koruyan evrensel fiziksel PBR profilleri (Konsept esyaya bagimli degildir!)",
         items=[
-            ('METAL_CRYSTAL', "Metal + Mor Kristal (Kilic / Zirh / Idol)", "Dovme kararmis celik govde + parlayan mor kristal"),
-            ('STONE_RUIN', "Tas / Harabe (Heykel / Kopru /api)", "ifir metalik, yuksek puruzlu isli tas ve guclu kabartma"),
-            ('WOOD_LEATHER', "Ahsap / Deri / Organik (Yay / Kiyafet)", "Sifir metalik, dogal mat deri/ahsap dokusu, sifir parlama"),
+            ('UNIVERSAL_ORIGINAL', "Evrensel Orijinal PBR (Varsayilan — Her Model!)", "Modelin kendi rengine hic dokunmaz (1.0 sadakat), dogal puruzluluk ve kabartma verir"),
+            ('PURE_METAL', "Saf Ortacag Metali (Kilic / Zirh / Kalkan — Parlamasiz)", "Deri kabza ile celik namluyu ayirir, yapay parlama EKLEMEZ, kendi renginde gercek celik yapar"),
+            ('STONE_RUIN', "Tas / Harabe / Heykel", "Sifir metalik, dogal mat tas puruzlulugu ve guclu yuzey kabartmasi"),
+            ('WOOD_LEATHER', "Ahsap / Deri / Kiyafet / Karakter", "Sifir metalik, sifir parlama, dogal organik yuzey"),
+            ('ARCANE_GLOW', "Buyulu / Kristalli Esya (Ozel Renk Parlamali)", "Modelin uzerindeki doygun renkteki rün/kristal kisimlarini kendi renginde parlatir"),
         ],
-        default='METAL_CRYSTAL',
+        default='UNIVERSAL_ORIGINAL',
     )
     pivot_preset: EnumProperty(
         name="Pivot (Tutma / Merkez) Noktasi",
@@ -138,9 +140,16 @@ class KARARSIZLIK_Properties(PropertyGroup):
         min=0.0,
         max=0.1,
     )
+    color_saturation: FloatProperty(
+        name="Renk Doygunlugu (1.0 = Orijinal)",
+        description="1.0 modelin kendi orijinal rengidir; biraz daha soluk karanlik atmosfer istersen 0.85 yapabilirsin",
+        default=1.0,
+        min=0.2,
+        max=1.5,
+    )
     metallic_strength: FloatProperty(
         name="Metalik Keskinlik",
-        default=0.92,
+        default=0.88,
         min=0.0,
         max=1.0,
     )
@@ -299,9 +308,10 @@ def apply_dark_pbr_and_smooth(context, props):
                 for old_n in [n for n in list(nodes) if n not in (bsdf, tex_node) and n.type != 'OUTPUT_MATERIAL']:
                     nodes.remove(old_n)
 
+                # Orijinal renk koruma (1.0 varsayilan — konsept esyaya bagimli renk kaydirma YOK!)
                 hsv = nodes.new('ShaderNodeHueSaturation')
-                hsv.inputs['Saturation'].default_value = 0.78 if profile != 'STONE_RUIN' else 0.65
-                hsv.inputs['Value'].default_value = 0.75
+                hsv.inputs['Saturation'].default_value = props.color_saturation
+                hsv.inputs['Value'].default_value = 1.0
                 links.new(tex_node.outputs['Color'], hsv.inputs['Color'])
                 links.new(hsv.outputs['Color'], bsdf.inputs['Base Color'])
 
@@ -309,7 +319,45 @@ def apply_dark_pbr_and_smooth(context, props):
                 sep.mode = 'HSV'
                 links.new(tex_node.outputs['Color'], sep.inputs['Color'])
 
-                if profile == 'METAL_CRYSTAL':
+                if profile == 'UNIVERSAL_ORIGINAL':
+                    # Her modelde (karakter, silah, tas, ahsap) bozmadan calisan evrensel dogal PBR
+                    bsdf.inputs['Metallic'].default_value = 0.08
+                    if 'Emission Strength' in bsdf.inputs:
+                        bsdf.inputs['Emission Strength'].default_value = 0.0
+                    rough_ramp = nodes.new('ShaderNodeValToRGB')
+                    rough_ramp.color_ramp.elements[0].color = (0.72, 0.72, 0.72, 1)
+                    rough_ramp.color_ramp.elements[1].color = (0.35, 0.35, 0.35, 1)
+                    links.new(sep.outputs[2], rough_ramp.inputs['Fac'])
+                    links.new(rough_ramp.outputs['Color'], bsdf.inputs['Roughness'])
+
+                elif profile == 'PURE_METAL':
+                    # Parlamasiz gercek ortacag celigi: Renkli/sicak deri kabzayi mat tutar, renksiz celigi metal yapar!
+                    if 'Emission Strength' in bsdf.inputs:
+                        bsdf.inputs['Emission Strength'].default_value = 0.0
+                    sat_ramp = nodes.new('ShaderNodeValToRGB')
+                    sat_ramp.color_ramp.elements[0].position = 0.22
+                    sat_ramp.color_ramp.elements[1].position = 0.45
+                    links.new(sep.outputs[1], sat_ramp.inputs['Fac'])
+
+                    inv = nodes.new('ShaderNodeMath')
+                    inv.operation = 'SUBTRACT'
+                    inv.inputs[0].default_value = 1.0
+                    links.new(sat_ramp.outputs['Color'], inv.inputs[1])
+
+                    metal_mul = nodes.new('ShaderNodeMath')
+                    metal_mul.operation = 'MULTIPLY'
+                    metal_mul.inputs[1].default_value = props.metallic_strength
+                    links.new(inv.outputs['Value'], metal_mul.inputs[0])
+                    links.new(metal_mul.outputs['Value'], bsdf.inputs['Metallic'])
+
+                    rough_ramp = nodes.new('ShaderNodeValToRGB')
+                    rough_ramp.color_ramp.elements[0].color = (0.55, 0.55, 0.55, 1)
+                    rough_ramp.color_ramp.elements[1].color = (0.20, 0.20, 0.20, 1)
+                    links.new(sep.outputs[2], rough_ramp.inputs['Fac'])
+                    links.new(rough_ramp.outputs['Color'], bsdf.inputs['Roughness'])
+
+                elif profile == 'ARCANE_GLOW':
+                    # Hangi renkte kristal/rün varsa (kirmizi, mavi, altin, mor) KENDI RENGINDE parlatir!
                     sat_ramp = nodes.new('ShaderNodeValToRGB')
                     sat_ramp.color_ramp.elements[0].position = 0.28
                     sat_ramp.color_ramp.elements[1].position = 0.50
@@ -367,7 +415,7 @@ def apply_dark_pbr_and_smooth(context, props):
                 links.new(sep.outputs[2], bump.inputs['Height'])
                 links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
 
-    # 3. 3 Noktali Sinematik Karanlik Isiklandirma (Okunabilir Kontur Rim Light ile!)
+    # 3. 3 Noktali Notr Sinematik Studyo Isiklandirmasi (Sifir Mor Boyama — %100 Gercek Renk!)
     for o in [obj for obj in scene.objects if obj.type == 'LIGHT']:
         bpy.data.objects.remove(o, do_unlink=True)
 
@@ -382,9 +430,9 @@ def apply_dark_pbr_and_smooth(context, props):
         direction = -light_obj.location
         light_obj.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
 
-    add_light("ColdKeyLight", (1.8, -2.0, 2.2), 85.0, (0.78, 0.86, 1.0), 1.8)
-    add_light("MoonRimLight", (-2.0, 1.5, 1.5), 65.0, (0.65, 0.45, 1.0), 1.2)
-    add_light("WarmEmberFill", (-1.5, -1.8, -0.5), 25.0, (1.0, 0.65, 0.4), 1.5)
+    add_light("NeutralKeyLight", (1.8, -2.0, 2.2), 85.0, (0.96, 0.98, 1.0), 1.8)
+    add_light("CoolMoonRimLight", (-2.0, 1.5, 1.5), 55.0, (0.78, 0.86, 1.0), 1.2)
+    add_light("SoftWarmFill", (-1.5, -1.8, -0.5), 22.0, (1.0, 0.88, 0.75), 1.5)
 
     for area in context.screen.areas:
         if area.type == 'VIEW_3D':
@@ -637,7 +685,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.0"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.1"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -660,12 +708,14 @@ class KARARSIZLIK_PT_MainPanel(Panel):
         box_std.prop(props, "target_tris")
 
         box2 = layout.box()
-        box2.label(text="Yumusatma & PBR Onizleme:", icon='MOD_SMOOTH')
+        box2.label(text="Yumusatma & Evrensel PBR:", icon='MOD_SMOOTH')
         box2.prop(props, "use_eevee_realtime")
+        box2.prop(props, "color_saturation")
         box2.prop(props, "smooth_iterations")
         box2.prop(props, "solidify_thickness")
-        if props.material_profile == 'METAL_CRYSTAL':
+        if props.material_profile in ('PURE_METAL', 'ARCANE_GLOW'):
             box2.prop(props, "metallic_strength")
+        if props.material_profile == 'ARCANE_GLOW':
             box2.prop(props, "emission_strength")
         box2.prop(props, "bump_strength")
         box2.operator("kararsizlik.update_settings", icon='FILE_REFRESH')
