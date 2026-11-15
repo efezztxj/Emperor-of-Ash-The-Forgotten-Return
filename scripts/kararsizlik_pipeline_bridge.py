@@ -19,7 +19,7 @@ Kullanim:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (1, 3, 0),
+    "version": (1, 3, 1),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
     "description": "ComfyUI TRELLIS.2 .glb ciktisini canli izler/alir, karanlik PBR + yumusatma uygular ve onayla Unreal Engine 5.8'e aktarir.",
@@ -257,12 +257,13 @@ class KARARSIZLIK_OT_ImportLatestComfy(Operator):
             self.report({'ERROR'}, f"Klasor bulunamadi: {folder}")
             return {'CANCELLED'}
 
-        glb_files = glob.glob(os.path.join(folder, "*.glb")) + glob.glob(os.path.join(folder, "**", "*.glb"), recursive=True)
-        if not glb_files:
-            self.report({'ERROR'}, f"Bu klasorde hic .glb dosyasi yok: {folder}")
-            return {'CANCELLED'}
-
-        latest_glb = max(glb_files, key=os.path.getmtime)
+        _mtime, latest_glb = _fast_latest_glb_mtime(folder)
+        if not latest_glb:
+            glb_files = glob.glob(os.path.join(folder, "**", "*.glb"), recursive=True)
+            if not glb_files:
+                self.report({'ERROR'}, f"Bu klasorde hic .glb dosyasi yok: {folder}")
+                return {'CANCELLED'}
+            latest_glb = max(glb_files, key=os.path.getmtime)
         base_name = os.path.splitext(os.path.basename(latest_glb))[0]
         props.asset_name = f"SM_{base_name}"
 
@@ -293,12 +294,17 @@ class KARARSIZLIK_OT_UpdateSettings(Operator):
         return {'FINISHED'}
 
 
+# Yuklenen son dosyayi RAM'de tut (Sahneye yazip her 2 sn'de UI yeniden cizimini tetiklemesin -> SIFIR KASMA!)
+_LAST_WATCHED_MTIME = 0.0
+
+
 class KARARSIZLIK_OT_ToggleAutoWatch(Operator):
-    """ComfyUI 3D klasorunu 2 saniyede bir izler; yeni .glb uretildigi an el degmeden sahneye alip PBR kurar!"""
+    """Sifir-Kasma Canli Yakalayici: Disk taramasi yapmadan anlik tetik dosyasini / klasor damgasini kontrol eder!"""
     bl_idname = "kararsizlik.toggle_auto_watch"
     bl_label = "Canli Oto-Yakalayiciyi Baslat / Durdur"
 
     def execute(self, context):
+        global _LAST_WATCHED_MTIME
         props = context.scene.kararsizlik_props
         if props.auto_watch_active:
             props.auto_watch_active = False
@@ -306,44 +312,53 @@ class KARARSIZLIK_OT_ToggleAutoWatch(Operator):
             return {'FINISHED'}
 
         folder = bpy.path.abspath(props.comfy_dir)
-        glb_files = glob.glob(os.path.join(folder, "*.glb")) + glob.glob(os.path.join(folder, "**", "*.glb"), recursive=True)
-        props.last_watched_mtime = max((os.path.getmtime(f) for f in glb_files), default=0.0)
+        _LAST_WATCHED_MTIME = _fast_latest_glb_mtime(folder)[0]
         props.auto_watch_active = True
 
         if not bpy.app.timers.is_registered(_kararsizlik_watch_timer):
-            bpy.app.timers.register(_kararsizlik_watch_timer, first_interval=2.0)
+            bpy.app.timers.register(_kararsizlik_watch_timer, first_interval=3.0)
 
-        self.report({'INFO'}, "CANLI IZLEYICI AKTIF! ComfyUI yeni .glb urettigi saniye otomatik sahneye gelecek!")
+        self.report({'INFO'}, "SIFIR-KASMA CANLI IZLEYICI AKTIF! Yeni .glb bittigi an otomatik sahneye gelecek!")
         return {'FINISHED'}
 
 
+def _fast_latest_glb_mtime(folder: str):
+    """os.scandir ile recursive tarama yapmadan 0.05 milisaniyede sadece ust klasordeki .glb damgasina bakar."""
+    best_mtime = 0.0
+    best_path = None
+    if not os.path.isdir(folder):
+        return best_mtime, best_path
+    try:
+        with os.scandir(folder) as it:
+            for entry in it:
+                if entry.is_file() and entry.name.lower().endswith(".glb"):
+                    st = entry.stat()
+                    if st.st_mtime > best_mtime and st.st_size > 1024:
+                        best_mtime = st.st_mtime
+                        best_path = entry.path
+    except OSError:
+        pass
+    return best_mtime, best_path
+
+
 def _kararsizlik_watch_timer():
+    global _LAST_WATCHED_MTIME
     scene = getattr(bpy.context, "scene", None)
     if not scene or not hasattr(scene, "kararsizlik_props"):
-        return 2.0
+        return 3.0
     props = scene.kararsizlik_props
     if not props.auto_watch_active:
         return None
 
     folder = bpy.path.abspath(props.comfy_dir)
-    if os.path.isdir(folder):
-        glb_files = glob.glob(os.path.join(folder, "*.glb")) + glob.glob(os.path.join(folder, "**", "*.glb"), recursive=True)
-        if glb_files:
-            latest_glb = max(glb_files, key=os.path.getmtime)
-            try:
-                mtime = os.path.getmtime(latest_glb)
-                size1 = os.path.getsize(latest_glb)
-            except OSError:
-                return 2.0
-
-            # Yeni ve yazimi tamamlanmis (>1 KB) bir .glb algilandiysa otomatik yukle!
-            if mtime > props.last_watched_mtime + 0.5 and size1 > 1024:
-                props.last_watched_mtime = mtime
-                try:
-                    bpy.ops.kararsizlik.import_latest_comfy()
-                except Exception as exc:
-                    print(f"[KARARSIZLIK Watch] Otomatik yukleme hatasi: {exc}")
-    return 2.0
+    mtime, latest_glb = _fast_latest_glb_mtime(folder)
+    if latest_glb and mtime > _LAST_WATCHED_MTIME + 0.5:
+        _LAST_WATCHED_MTIME = mtime
+        try:
+            bpy.ops.kararsizlik.import_latest_comfy()
+        except Exception as exc:
+            print(f"[KARARSIZLIK Watch] Otomatik yukleme hatasi: {exc}")
+    return 3.0
 
 
 class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
