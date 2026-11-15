@@ -19,7 +19,7 @@ Kullanim:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
     "description": "ComfyUI TRELLIS.2 .glb ciktisini otomatik alir, karanlik PBR + yumusatma uygular ve onayla Unreal Engine 5.8'e aktarir.",
@@ -141,7 +141,10 @@ def apply_dark_pbr_and_smooth(context, props):
             tex_node = next((n for n in nodes if n.type == 'TEX_IMAGE'), None)
 
             if bsdf and tex_node:
-                # Eski dugumler varsa temiz tutmak icin kontrol et
+                # Daha once olusturulmus KARARSIZLIK yardimci dugumleri varsa ust uste binmesin diye temizle
+                for old_n in [n for n in list(nodes) if n not in (bsdf, tex_node) and n.type != 'OUTPUT_MATERIAL']:
+                    nodes.remove(old_n)
+
                 hsv = nodes.new('ShaderNodeHueSaturation')
                 hsv.inputs['Saturation'].default_value = 0.78
                 hsv.inputs['Value'].default_value = 0.75
@@ -252,6 +255,19 @@ class KARARSIZLIK_OT_ImportLatestComfy(Operator):
         return {'FINISHED'}
 
 
+class KARARSIZLIK_OT_UpdateSettings(Operator):
+    """Kaydiricilari degistirdikten sonra modeli bastan yuklemeden aninda yumusatma ve PBR ayarlarini gunceller"""
+    bl_idname = "kararsizlik.update_settings"
+    bl_label = "Ayarlari Modele Uygula (Yenile)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        props = context.scene.kararsizlik_props
+        apply_dark_pbr_and_smooth(context, props)
+        self.report({'INFO'}, "PBR ve Yumusatma ayarlari guncellendi!")
+        return {'FINISHED'}
+
+
 class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
     """Onaylanan modeli temizleyip Unreal Engine 5.8 Auto-Import klasorune aktarir"""
     bl_idname = "kararsizlik.approve_export_unreal"
@@ -284,13 +300,21 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
         clean_name = props.asset_name.strip() or "SM_Kararsizlik_Asset"
         out_glb = os.path.join(export_dir, f"{clean_name}.glb")
 
-        # Unreal Engine 5.8 glTF/GLB dogrudan PBR + Texture ile kusursuz alir!
-        bpy.ops.export_scene.gltf(
-            filepath=out_glb,
-            export_format='GLB',
-            use_selection=True,
-            export_apply=True,
-        )
+        # Unreal Engine 5.8 icin hem GLB hem FBX secenegiyle en uyumlu GLB ciktisi (Blender 4.2/5.x uyumlu argumanlar)
+        try:
+            bpy.ops.export_scene.gltf(
+                filepath=out_glb,
+                export_format='GLB',
+                use_selection=True,
+                export_apply=True,
+            )
+        except TypeError:
+            # Blender 5.x olasi arguman degisimi icin geri donus (fallback)
+            bpy.ops.export_scene.gltf(
+                filepath=out_glb,
+                export_format='GLB',
+                use_selection=True,
+            )
 
         self.report({'INFO'}, f"ONAYLANDI! Unreal Engine klasorune gonderildi: {out_glb}")
         return {'FINISHED'}
@@ -319,6 +343,7 @@ class KARARSIZLIK_PT_MainPanel(Panel):
         box2.prop(props, "metallic_strength")
         box2.prop(props, "bump_strength")
         box2.prop(props, "emission_strength")
+        box2.operator("kararsizlik.update_settings", icon='FILE_REFRESH')
 
         layout.separator()
         col = layout.column(align=True)
@@ -337,6 +362,7 @@ class KARARSIZLIK_PT_MainPanel(Panel):
 classes = (
     KARARSIZLIK_Properties,
     KARARSIZLIK_OT_ImportLatestComfy,
+    KARARSIZLIK_OT_UpdateSettings,
     KARARSIZLIK_OT_ApproveExportUnreal,
     KARARSIZLIK_PT_MainPanel,
 )

@@ -54,6 +54,10 @@ def upgrade_trellis_to_dark_pbr(
             tex_node = next((n for n in nodes if n.type == 'TEX_IMAGE'), None)
 
             if bsdf and tex_node:
+                # Daha once eklenmis dugumler varsa ust uste binmesin diye temizle
+                for old_n in [n for n in list(nodes) if n not in (bsdf, tex_node) and n.type != 'OUTPUT_MATERIAL']:
+                    nodes.remove(old_n)
+
                 # Soguk ve kirli karanlik ortacag renk dengesi
                 hsv = nodes.new('ShaderNodeHueSaturation')
                 hsv.inputs['Saturation'].default_value = saturation
