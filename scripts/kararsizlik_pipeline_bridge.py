@@ -19,10 +19,10 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 5, 1),
+    "version": (2, 6, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "Sifir-Delik 4K PBR Koruyucu (Mikro parcalari asla silmez!) & Unreal 5.8 koprusu.",
+    "description": "Sifir-Siyah-Ucgen: UV Kasma Onleyici (Closest/Smart Filter) + Doku Siyah Piksel Doldurucu (Inpaint) Koprusu.",
     "category": "Import-Export",
 }
 
@@ -136,10 +136,10 @@ class KARARSIZLIK_Properties(PropertyGroup):
         min=0,
         max=40,
     )
-    clean_floating_crumbs: BoolProperty(
-        name="Mikro Toz Supurucu (Sadece <=3 Ucgen, Varsayilan Kapali)",
-        description="Kapali tut! Acik olursa zirhtaki ayri percin/parmak parcalarini silebilir",
-        default=False,
+    fix_black_uv_triangles: BoolProperty(
+        name="Siyah Ucgen Lekelerini Kapat (Doku Dilate)",
+        description="ComfyUI UV bosluklarindan sizan o minik siyah ucgenleri komsu zirh/pelerin rengiyle otomatik boyayip kapatir!",
+        default=True,
     )
     lighting_brightness: FloatProperty(
         name="Studyo & Metal Canliligi (Bogukluk Açar!)",
@@ -296,47 +296,59 @@ def repair_trellis_cracks_and_normals(obj, weld_ratio: float, force: bool = Fals
         bm.free()
 
 
-def remove_floating_crumbs_bmesh(obj, max_crumb_faces: int = 3):
-    """Sadece en fazla 3 ucgenlik mikroskobik tozlari siler; zirh/parmak adalarina ASLA dokunmaz!"""
-    if obj.type != 'MESH' or obj.name.startswith("UCX_") or len(obj.data.polygons) < 100:
+def inpaint_black_uv_background_numpy(img, passes: int = 8):
+    """
+    Gercek Kok Cozum: ComfyUI BaseColor atlasindaki #000000 zifiri siyah bosluk piksellerini
+    komsu zirh/pelerin renkleriyle disariya dogru sisirir (Texture Dilation / Margin Bleed Fix)!
+    Boylece Mipmap / Linear filtre veya mikro UV kaymasi ASLA siyah ucgen olusturamaz!
+    """
+    if not img or img.get("_kararsizlik_dilated", False):
         return
-    bm = bmesh.new()
     try:
-        bm.from_mesh(obj.data)
-        bm.faces.ensure_lookup_table()
+        import numpy as np
 
-        visited = set()
-        islands = []
-        for f in bm.faces:
-            if f.index in visited:
-                continue
-            stack = [f]
-            comp = []
-            visited.add(f.index)
-            while stack:
-                cur = stack.pop()
-                comp.append(cur)
-                for e in cur.edges:
-                    for nf in e.link_faces:
-                        if nf.index not in visited:
-                            visited.add(nf.index)
-                            stack.append(nf)
-            islands.append(comp)
+        w, h = img.size
+        if w < 16 or h < 16:
+            return
+        arr = np.empty(w * h * 4, dtype=np.float32)
+        img.pixels.foreach_get(arr)
+        grid = arr.reshape((h, w, 4))
 
-        if len(islands) > 1:
-            to_del = []
-            for comp in islands:
-                if len(comp) <= max_crumb_faces:
-                    to_del.extend(comp)
-            if to_del:
-                bmesh.ops.delete(bm, geom=to_del, context='FACES')
-                bm.normal_update()
-                bm.to_mesh(obj.data)
-                obj.data.update()
+        # Sadece gercekten UV boslugu olan zifiri siyahlari (R,G,B < 0.012) hedefle
+        rgb = grid[:, :, :3]
+        empty = (rgb[:, :, 0] < 0.012) & (rgb[:, :, 1] < 0.012) & (rgb[:, :, 2] < 0.012)
+        if not np.any(empty) or np.all(empty):
+            img["_kararsizlik_dilated"] = True
+            return
+
+        for _ in range(passes):
+            if not np.any(empty):
+                break
+            acc = np.zeros_like(rgb)
+            cnt = np.zeros((h, w, 1), dtype=np.float32)
+            for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
+                shifted_rgb = np.roll(np.roll(rgb, dy, axis=0), dx, axis=1)
+                shifted_valid = ~np.roll(np.roll(empty, dy, axis=0), dx, axis=1)
+                mask3 = shifted_valid[:, :, None]
+                acc += shifted_rgb * mask3
+                cnt += mask3
+            fillable = empty & (cnt[:, :, 0] > 0)
+            if not np.any(fillable):
+                break
+            rgb[fillable] = acc[fillable] / cnt[fillable]
+            empty[fillable] = False
+
+        grid[:, :, :3] = rgb
+        grid[:, :, 3] = 1.0
+        img.pixels.foreach_set(grid.ravel())
+        img.update()
+        try:
+            img.pack()
+        except Exception:
+            pass
+        img["_kararsizlik_dilated"] = True
     except Exception as exc:
-        print(f"[KARARSIZLIK Kirinti Temizleyici Uyarisi] {exc}")
-    finally:
-        bm.free()
+        print(f"[KARARSIZLIK Siyah Ucgen Doku Tamiri Uyarisi] {exc}")
 
 
 def apply_dark_pbr_and_smooth(context, props, run_mesh_repair: bool = False):
@@ -368,10 +380,8 @@ def apply_dark_pbr_and_smooth(context, props, run_mesh_repair: bool = False):
         context.view_layer.objects.active = obj
         obj.select_set(True)
 
-        # 0. HIZLI BMesh CATLAK TAMIRI + UCAN TOZ KIRINTILARINI SUPURME!
+        # 0. HIZLI BMesh CATLAK TAMIRI
         repair_trellis_cracks_and_normals(obj, props.seam_weld_distance, force=run_mesh_repair)
-        if run_mesh_repair and props.clean_floating_crumbs:
-            remove_floating_crumbs_bmesh(obj)
 
         # Modelin boyuna uygun guvenli Weld esigi
         local_bbox = [Vector(corner) for corner in obj.bound_box]
@@ -444,15 +454,22 @@ def apply_dark_pbr_and_smooth(context, props, run_mesh_repair: bool = False):
             bsdf = next((n for n in nodes if n.type == 'BSDF_PRINCIPLED'), None)
             all_tex_nodes = [n for n in nodes if n.type == 'TEX_IMAGE']
 
+            # Dokudaki siyah UV bosluklarindan kaynaklanan minik siyah ucgenleri komsu zirh/pelerin rengiyle doldur!
+            if props.fix_black_uv_triangles and bsdf:
+                base_links = bsdf.inputs['Base Color'].links
+                base_tex = base_links[0].from_node if (base_links and base_links[0].from_node.type == 'TEX_IMAGE') else (all_tex_nodes[0] if all_tex_nodes else None)
+                if base_tex and base_tex.image:
+                    inpaint_black_uv_background_numpy(base_tex.image, passes=10)
+
             # Eger COMFY_4K_PBR seciliyse ve modelde ComfyUI'in pisirdigi 4K Normal/Metallic/Roughness haritalari varsa ASLA SILME!
             if profile == 'COMFY_4K_PBR' and bsdf and len(all_tex_nodes) >= 1:
-                # Tum doku dugumlerini en keskin filtrelemeye (Cubic) al
+                # DIKKAT: 'Cubic' (4x4 komsu) UV kenarindaki siyah boslugu iceri sizdirip siyah ucgen yapiyordu -> 'Linear' en temizidir!
                 for tn in all_tex_nodes:
-                    tn.interpolation = 'Cubic'
-                # Normal Map dugumu varsa gucunu ayarlanabilir tut (1.0 dogal)
+                    tn.interpolation = 'Linear'
+                # Normal Map dugumu varsa gucunu dogal tut (Asiri yuksek olursa egimli ucgenleri siyah golge yapar!)
                 norm_node = next((n for n in nodes if n.type == 'NORMAL_MAP'), None)
                 if norm_node and 'Strength' in norm_node.inputs:
-                    norm_node.inputs['Strength'].default_value = max(0.5, props.bump_strength * 4.5)
+                    norm_node.inputs['Strength'].default_value = min(1.0, max(0.35, props.bump_strength * 3.0))
                 continue
 
             tex_node = all_tex_nodes[0] if all_tex_nodes else None
@@ -708,7 +725,7 @@ class KARARSIZLIK_OT_ResetDefaults(Operator):
         props.color_saturation = 1.0
         props.seam_weld_distance = 0.0
         props.smooth_iterations = 0
-        props.clean_floating_crumbs = False
+        props.fix_black_uv_triangles = True
         props.lighting_brightness = 1.35
         props.solidify_thickness = 0.0
         props.bump_strength = 0.22
@@ -863,7 +880,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.5.1"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.6"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -886,10 +903,10 @@ class KARARSIZLIK_PT_MainPanel(Panel):
         box_std.prop(props, "target_tris")
 
         box2 = layout.box()
-        box2.label(text="4K Keskinlik & Canli Isik:", icon='MOD_SMOOTH')
+        box2.label(text="Sifir-Siyah-Ucgen & PBR:", icon='MOD_SMOOTH')
         box2.operator("kararsizlik.reset_defaults", icon='LOOP_BACK')
         box2.prop(props, "use_eevee_realtime")
-        box2.prop(props, "clean_floating_crumbs")
+        box2.prop(props, "fix_black_uv_triangles")
         box2.prop(props, "double_sided_preview")
         box2.prop(props, "lighting_brightness")
         box2.prop(props, "color_saturation")
