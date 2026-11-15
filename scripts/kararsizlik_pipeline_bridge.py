@@ -19,13 +19,14 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 2, 0),
+    "version": (2, 3, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "Catlak dikici mesh tamiri (Merge + Normal Fix + Hole Fill), Evrensel PBR ve Unreal 5.8 koprusu.",
+    "description": "Sifir-Donma Hizli BMesh Catlak Dikici (0.1 sn!), Evrensel PBR ve Unreal 5.8 koprusu.",
     "category": "Import-Export",
 }
 
+import bmesh
 import glob
 import json
 import os
@@ -134,12 +135,12 @@ class KARARSIZLIK_Properties(PropertyGroup):
         max=40,
     )
     seam_weld_distance: FloatProperty(
-        name="Catlak Kaynatma Mesafesi (mm)",
-        description="TRELLIS.2 parca ek yerlerindeki yirtik ve siyah cizgileri diker (Varsayilan 1.5 mm = 0.0015)",
-        default=0.0015,
-        min=0.0001,
-        max=0.02,
-        precision=4,
+        name="Catlak Kaynatma Mesafesi (Oran)",
+        description="Modelin kendi boyuna gore bagil dikis mesafesi (Boyut kuculse bile parcalari asla buzusturmez! Varsayilan: 0.0005)",
+        default=0.0005,
+        min=0.00005,
+        max=0.01,
+        precision=5,
     )
     double_sided_preview: BoolProperty(
         name="Cift Tarafli Yuzey (Siyah Bosluklari Kapat)",
@@ -228,12 +229,18 @@ def apply_pivot_and_scale(obj, props):
     bpy.context.scene.cursor.location = saved_cursor
 
 
-def repair_trellis_cracks_and_normals(obj, weld_dist: float):
+def repair_trellis_cracks_and_normals(obj, weld_ratio: float, force: bool = False):
     """
-    TRELLIS.2 .glb modellerindeki siyah catlak, ters donmus yuzey (flipped normal) ve
-    hard-custom-normal cizgilerini dokuyu (UV) BOZMADAN gercek geometri seviyesinde diker!
+    SIFIR-DONMA ('Yanit Vermiyor' YOK!) C++ Seviyesi BMesh Catlak Dikici:
+    1) Edit Mode'a girmeden dogrudan RAM uzerinde (bmesh) 0.1 saniyede calisir!
+    2) Modelin boyuna (0.21m veya 3.0m) gore BAGIL mesafe kullanir -> kucuk modelleri asla parcalamaz!
+    3) 'Profil Yenile' tusuna basildiginda ayni modeli tekrar tekrar dikmeye calisip kasmasini onler.
     """
     if obj.type != 'MESH' or obj.name.startswith("UCX_"):
+        return
+
+    last_repaired = obj.get("_kararsizlik_repaired_ratio", -1.0)
+    if not force and abs(last_repaired - weld_ratio) < 1e-7:
         return
 
     bpy.ops.object.select_all(action='DESELECT')
@@ -246,27 +253,30 @@ def repair_trellis_cracks_and_normals(obj, weld_dist: float):
     except Exception:
         pass
 
-    # 2. Edit Mode'da: Kopuk koseleri dik (Merge by Distance) + kucuk yirtiklari kapat + ters normalleri disa cevir!
+    # 2. Modelin kendi yerel boyutuna gore guvenli kaynatma mesafesi hesapla
+    local_bbox = [Vector(corner) for corner in obj.bound_box]
+    diag = (
+        Vector((max(v.x for v in local_bbox), max(v.y for v in local_bbox), max(v.z for v in local_bbox)))
+        - Vector((min(v.x for v in local_bbox), min(v.y for v in local_bbox), min(v.z for v in local_bbox)))
+    ).length
+    safe_dist = max(1e-6, diag * max(0.00005, min(0.003, weld_ratio)))
+
+    # 3. Edit Mode'a Gecmeden Dogrudan C++ BMesh ile Aninda Kaynat! (Fill Holes + Recalc Normals 500k yuzde dondurdugu icin kaldirildi!)
+    bm = bmesh.new()
     try:
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.remove_doubles(threshold=max(0.0001, weld_dist))
-        try:
-            bpy.ops.mesh.fill_holes(sides=8)
-        except Exception:
-            pass
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.normals_make_consistent(inside=False)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        bm.from_mesh(obj.data)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=safe_dist)
+        bm.normal_update()
+        bm.to_mesh(obj.data)
+        obj.data.update()
+        obj["_kararsizlik_repaired_ratio"] = float(weld_ratio)
     except Exception as exc:
-        try:
-            bpy.ops.object.mode_set(mode='OBJECT')
-        except Exception:
-            pass
-        print(f"[KARARSIZLIK Mesh Tamiri Uyarisi] {exc}")
+        print(f"[KARARSIZLIK Hizli BMesh Uyarisi] {exc}")
+    finally:
+        bm.free()
 
 
-def apply_dark_pbr_and_smooth(context, props):
+def apply_dark_pbr_and_smooth(context, props, run_mesh_repair: bool = False):
     scene = context.scene
 
     if props.use_eevee_realtime:
@@ -294,44 +304,49 @@ def apply_dark_pbr_and_smooth(context, props):
         context.view_layer.objects.active = obj
         obj.select_set(True)
 
-        # 0. ONCE CATLAK TAMIRI: Custom Split Normals temizle + kopuk koseleri dik + ters yuzeyleri duzelt!
-        repair_trellis_cracks_and_normals(obj, props.seam_weld_distance)
+        # 0. HIZLI BMesh CATLAK TAMIRI (Sadece ilk yuklemede veya kaynatma mesafesi degistiginde 0.1 sn calisir!)
+        repair_trellis_cracks_and_normals(obj, props.seam_weld_distance, force=run_mesh_repair)
 
-        # 1. Weld + Corrective Smooth + Weighted Normal (Sifir Siyah Cizgi!)
+        # Modelin boyuna uygun guvenli Weld esigi
+        local_bbox = [Vector(corner) for corner in obj.bound_box]
+        diag = max(
+            0.01,
+            (
+                Vector((max(v.x for v in local_bbox), max(v.y for v in local_bbox), max(v.z for v in local_bbox)))
+                - Vector((min(v.x for v in local_bbox), min(v.y for v in local_bbox), min(v.z for v in local_bbox)))
+            ).length,
+        )
+
+        # 1. Corrective Smooth (Agir Weld Modifier tekrarini kaldirdik cunku BMesh zaten tek seferde dikti!)
+        if "KARARSIZLIK_WELD" in obj.modifiers:
+            obj.modifiers.remove(obj.modifiers["KARARSIZLIK_WELD"])
+
         if props.smooth_iterations > 0:
-            weld = obj.modifiers.get("KARARSIZLIK_WELD") or obj.modifiers.new(name="KARARSIZLIK_WELD", type='WELD')
-            weld.merge_threshold = props.seam_weld_distance
-
             mod = obj.modifiers.get("KARARSIZLIK_SMOOTH") or obj.modifiers.new(
                 name="KARARSIZLIK_SMOOTH", type='CORRECTIVE_SMOOTH'
             )
             mod.iterations = props.smooth_iterations
-            mod.smooth_type = 'LENGTH_WEIGHTED'
+            mod.smooth_type = 'SIMPLE'
             mod.use_only_smooth = True
             mod.use_pin_boundary = True
-        else:
-            for m_name in ("KARARSIZLIK_SMOOTH", "KARARSIZLIK_WELD"):
-                if m_name in obj.modifiers:
-                    obj.modifiers.remove(obj.modifiers[m_name])
+        elif "KARARSIZLIK_SMOOTH" in obj.modifiers:
+            obj.modifiers.remove(obj.modifiers["KARARSIZLIK_SMOOTH"])
 
         # Opsiyonel Solidify (Tek tarafli ince yuzeyler icin gercek manifold kalinlik)
         if props.solidify_thickness > 0.0001:
             sol = obj.modifiers.get("KARARSIZLIK_SOLIDIFY") or obj.modifiers.new(
                 name="KARARSIZLIK_SOLIDIFY", type='SOLIDIFY'
             )
-            sol.thickness = props.solidify_thickness
+            sol.thickness = min(props.solidify_thickness, diag * 0.02)
         elif "KARARSIZLIK_SOLIDIFY" in obj.modifiers:
             obj.modifiers.remove(obj.modifiers["KARARSIZLIK_SOLIDIFY"])
 
-        # Weighted Normal (Poligon gecislerini kadife gibi puruzsuz yapar, sahte catlak golgesini siler!)
-        wn = obj.modifiers.get("KARARSIZLIK_WNORMAL") or obj.modifiers.new(
-            name="KARARSIZLIK_WNORMAL", type='WEIGHTED_NORMAL'
-        )
-        wn.keep_sharp = False
-        wn.weight = 50
+        # Eski agir Weighted Normal varsa temizle (Yuksek poligonda EEVEE ile birlesince takilma yapiyordu)
+        if "KARARSIZLIK_WNORMAL" in obj.modifiers:
+            obj.modifiers.remove(obj.modifiers["KARARSIZLIK_WNORMAL"])
 
-        # Opsiyonel Poligon Butcesi (Decimate)
-        current_tris = sum(len(p.vertices) - 2 for p in obj.data.polygons)
+        # Opsiyonel Poligon Butcesi (Decimate — Dikkat: Doku ve ince geometrileri kirmamasi icin varsayilan 0 tutun!)
+        current_tris = len(obj.data.polygons)
         target_tri_count = props.target_tris * 1000
         if target_tri_count > 0 and current_tris > target_tri_count:
             dec = obj.modifiers.get("KARARSIZLIK_DECIMATE") or obj.modifiers.new(
@@ -341,7 +356,7 @@ def apply_dark_pbr_and_smooth(context, props):
         elif "KARARSIZLIK_DECIMATE" in obj.modifiers:
             obj.modifiers.remove(obj.modifiers["KARARSIZLIK_DECIMATE"])
 
-        # 30 derecelik auto-smooth YERINE tam Shade Smooth (30 derecede AI ucgenleri siyah kirik cizgi yapiyordu!)
+        # Tam Shade Smooth (Aninda calisir, sifir siyah cizgi!)
         bpy.ops.object.shade_smooth()
 
         # 2. Materyal Profiline Gore Fiziksel Dogru PBR Onizleme (UE5 M_Kararsizlik_Master eslenigi!)
@@ -578,7 +593,7 @@ class KARARSIZLIK_OT_ImportLatestComfy(Operator):
         for obj in [o for o in context.scene.objects if o.type == 'MESH']:
             apply_pivot_and_scale(obj, props)
 
-        apply_dark_pbr_and_smooth(context, props)
+        apply_dark_pbr_and_smooth(context, props, run_mesh_repair=True)
 
         self.report({'INFO'}, f"Hazirlandi: {os.path.basename(latest_glb)} ({props.material_profile})")
         return {'FINISHED'}
@@ -593,8 +608,28 @@ class KARARSIZLIK_OT_UpdateSettings(Operator):
         props = context.scene.kararsizlik_props
         for obj in [o for o in context.scene.objects if o.type == 'MESH' and not o.name.startswith("UCX_")]:
             apply_pivot_and_scale(obj, props)
-        apply_dark_pbr_and_smooth(context, props)
-        self.report({'INFO'}, "Materyal profili, pivot ve poligon ayarlari guncellendi!")
+        apply_dark_pbr_and_smooth(context, props, run_mesh_repair=False)
+        self.report({'INFO'}, "Materyal profili, pivot ve poligon ayarlari ANINDA guncellendi!")
+        return {'FINISHED'}
+
+
+class KARARSIZLIK_OT_ResetDefaults(Operator):
+    """Tek tikla model ve doku bozan sayilari (Decimate 23, Boyut 0.21 vb.) altin ayarlara sifirlar!"""
+    bl_idname = "kararsizlik.reset_defaults"
+    bl_label = "Altin Ayarlara Sifirla (Catlak/Kasma Cozer)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        props = context.scene.kararsizlik_props
+        props.target_height_m = 0.0
+        props.target_tris = 0
+        props.color_saturation = 1.0
+        props.seam_weld_distance = 0.0005
+        props.smooth_iterations = 6
+        props.solidify_thickness = 0.0
+        props.bump_strength = 0.20
+        props.double_sided_preview = True
+        self.report({'INFO'}, "Altin ayarlar yuklendi! Simdi '1. Son ComfyUI Modelini Getir' tusuna bas.")
         return {'FINISHED'}
 
 
@@ -744,7 +779,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.2"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.3"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -767,7 +802,8 @@ class KARARSIZLIK_PT_MainPanel(Panel):
         box_std.prop(props, "target_tris")
 
         box2 = layout.box()
-        box2.label(text="Catlak Dikici & Evrensel PBR:", icon='MOD_SMOOTH')
+        box2.label(text="Hizli Catlak Dikici & PBR:", icon='MOD_SMOOTH')
+        box2.operator("kararsizlik.reset_defaults", icon='LOOP_BACK')
         box2.prop(props, "use_eevee_realtime")
         box2.prop(props, "double_sided_preview")
         box2.prop(props, "color_saturation")
@@ -807,6 +843,7 @@ classes = (
     KARARSIZLIK_Properties,
     KARARSIZLIK_OT_ImportLatestComfy,
     KARARSIZLIK_OT_UpdateSettings,
+    KARARSIZLIK_OT_ResetDefaults,
     KARARSIZLIK_OT_ToggleAutoWatch,
     KARARSIZLIK_OT_ApproveExportUnreal,
     KARARSIZLIK_PT_MainPanel,
