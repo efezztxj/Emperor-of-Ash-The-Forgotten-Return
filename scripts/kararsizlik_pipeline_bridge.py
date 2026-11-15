@@ -19,10 +19,10 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 3, 1),
+    "version": (2, 3, 2),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "Sifir-Donma Hizli BMesh Catlak Dikici (0.1 sn!), Evrensel PBR ve Unreal 5.8 koprusu.",
+    "description": "UV-Koruyucu Sifir-Beneklenme PBR (0.1 sn!), Evrensel Renk ve Unreal 5.8 koprusu.",
     "category": "Import-Export",
 }
 
@@ -135,11 +135,11 @@ class KARARSIZLIK_Properties(PropertyGroup):
         max=40,
     )
     seam_weld_distance: FloatProperty(
-        name="Catlak Kaynatma Mesafesi (Oran)",
-        description="Modelin kendi boyuna gore bagil dikis mesafesi (Boyut kuculse bile parcalari asla buzusturmez! Varsayilan: 0.0005)",
-        default=0.0005,
-        min=0.00005,
-        max=0.01,
+        name="Catlak Kaynatma (0 = Kapali / UV Koru!)",
+        description="0 birakirsan UV dokulari %100 korunur ve ASLA siyah benek yapmaz! Sadece doku icermeyen duz modellerde ac",
+        default=0.0,
+        min=0.0,
+        max=0.005,
         precision=5,
     )
     double_sided_preview: BoolProperty(
@@ -237,10 +237,9 @@ def apply_pivot_and_scale(obj, props):
 
 def repair_trellis_cracks_and_normals(obj, weld_ratio: float, force: bool = False):
     """
-    SIFIR-DONMA ('Yanit Vermiyor' YOK!) C++ Seviyesi BMesh Catlak Dikici:
-    1) Edit Mode'a girmeden dogrudan RAM uzerinde (bmesh) 0.1 saniyede calisir!
-    2) Modelin boyuna (0.21m veya 3.0m) gore BAGIL mesafe kullanir -> kucuk modelleri asla parcalamaz!
-    3) 'Profil Yenile' tusuna basildiginda ayni modeli tekrar tekrar dikmeye calisip kasmasini onler.
+    UV-KORUYUCU SIFIR-BENEKLENME C++ BMesh Duzeltici:
+    1) weld_ratio == 0 ise UV dikis yerlerine HIC dokunmaz (Sifir siyah benek!), SADECE gomulu kirik Custom Split Normals'i temizler!
+    2) weld_ratio > 0 verilirse Edit Mode'a girmeden 0.1 saniyede kaynatir.
     """
     if obj.type != 'MESH' or obj.name.startswith("UCX_"):
         return
@@ -253,13 +252,15 @@ def repair_trellis_cracks_and_normals(obj, weld_ratio: float, force: bool = Fals
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
 
-    # 1. glTF'ten gelen ve koselerde jilet gibi siyah kirik yapan gomulu Custom Split Normals'i temizle!
     try:
         bpy.ops.mesh.customdata_custom_splitnormals_clear()
     except Exception:
         pass
 
-    # 2. Modelin kendi yerel boyutuna gore guvenli kaynatma mesafesi hesapla
+    if weld_ratio <= 1e-6:
+        obj["_kararsizlik_repaired_ratio"] = 0.0
+        return
+
     local_bbox = [Vector(corner) for corner in obj.bound_box]
     diag = (
         Vector((max(v.x for v in local_bbox), max(v.y for v in local_bbox), max(v.z for v in local_bbox)))
@@ -267,7 +268,6 @@ def repair_trellis_cracks_and_normals(obj, weld_ratio: float, force: bool = Fals
     ).length
     safe_dist = max(1e-6, diag * max(0.00005, min(0.003, weld_ratio)))
 
-    # 3. Edit Mode'a Gecmeden Dogrudan C++ BMesh ile Aninda Kaynat! (Fill Holes + Recalc Normals 500k yuzde dondurdugu icin kaldirildi!)
     bm = bmesh.new()
     try:
         bm.from_mesh(obj.data)
@@ -620,9 +620,9 @@ class KARARSIZLIK_OT_UpdateSettings(Operator):
 
 
 class KARARSIZLIK_OT_ResetDefaults(Operator):
-    """Tek tikla model ve doku bozan sayilari (Decimate 23, Boyut 0.21 vb.) altin ayarlara sifirlar!"""
+    """Tek tikla model ve doku bozan sayilari (Decimate 23, Boyut 0.21, UV beneklenme vb.) altin ayarlara sifirlar!"""
     bl_idname = "kararsizlik.reset_defaults"
-    bl_label = "Altin Ayarlara Sifirla (Catlak/Kasma Cozer)"
+    bl_label = "Altin Ayarlara Sifirla (Catlak/Benek Cozer)"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -630,10 +630,10 @@ class KARARSIZLIK_OT_ResetDefaults(Operator):
         props.target_height_m = 0.0
         props.target_tris = 0
         props.color_saturation = 1.0
-        props.seam_weld_distance = 0.0005
-        props.smooth_iterations = 6
+        props.seam_weld_distance = 0.0
+        props.smooth_iterations = 4
         props.solidify_thickness = 0.0
-        props.bump_strength = 0.20
+        props.bump_strength = 0.18
         props.double_sided_preview = True
         self.report({'INFO'}, "Altin ayarlar yuklendi! Simdi '1. Son ComfyUI Modelini Getir' tusuna bas.")
         return {'FINISHED'}
@@ -785,7 +785,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.3.1"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.3.2"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
