@@ -4,6 +4,7 @@ Karanlık fantastik üçüncü şahıs Aksiyon-RPG projesi. Aydınlık, karanlı
 
 ## 📂 Repo İçeriği
 
+* **`PRODUCTION_MASTER_PLAN_TR.md`** — **Profesyonel Stüdyo Üretim, Sprint & Kilometre Taşı Planı (`Gate 0 -> Gold Master`):** Sprint iş paketleri (`ENG/CMB/AI/SYS/LVL/CIN`), santimetre ve milisaniye savaş cetveli (*The Metrics Bible*), varlık takip matrisi *(yüzü kapatan unsur bu hafta, can eşyası daha sonra belirlenecek notuyla)* ve resmi UE `5.8.4` klasör mimarisi.
 * **`GAME_DESIGN_DOCUMENT_TR.md`** — **Resmi Oyun Tasarım ve Teknik Mimari Dokümanı (GDD v1.0):** Hikâye, sınıfsız melez sistem, akıcı savaş mimarisi, "her an kararsız bırakma" psikolojisi, sinematik açılış/`Continue` akışı, HUD prensipleri, üretim hattı ve 5 aşamalı geliştirme planı.
 * **`Kararsizlik_Oyun_Evreni_ve_Hikaye_Taslagi (1).pdf`** — Oyunun temel hikâyesi, evreni, karakter geçmişi, sınıf sistemi ve Kararsızlık Evreni başlangıç taslağı.
 * **`AI_HAFIZA_VE_KISILIK_REHBERI.md`** — Yerel yapay zekâ modelleri (`9B` / `27B`), tasarım kuralları (ateşli silah yok; kılıç, kalkan, yay, büyü ve keşiş disiplinleri), psikolojik kararsızlık sistemleri, ComfyUI (`MOSS-Image` + `TRELLIS.2`) -> Blender 5.3.0 -> Unreal Engine 5.8.4 teknik üretim hattı ve **Yapılacaklar Yol Haritası (TODO)**.

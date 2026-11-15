@@ -27,7 +27,7 @@
 * Kibri ve kusurlu doğası yüzünden cennetten kovulup insanların ve tuhaf varlıkların yaşadığı yeryüzüne sürgün edilir.
 * İlahi gücüyle insanların başına geçer ve **600 yıl boyunca** demir yumrukla yönettiği karanlık bir imparatorluk kurar. Halk onu Tanrı katında görür; o ise cennete duyduğu öfkeyle **Gerçek Tanrı'nın öğretilerinin tam tersini emreden kendi ters-dinini** inşa eder.
 * **Zoraki Mutluluk Yasası:** Bu dinde imparatorluk sınırları içindeki herkesin her koşulda **mutlu görünmesi ve yüzünde gülümseme taşıması zorunludur**. Gerçek Tanrı'ya gizlice inananlar veya kederini belli edenler ağır işkenceler ve idamlarla cezalandırılır.
-* **Yüzsüz / Maskeli Hükümdar Kimliği:** İmparator hükümdarlığı boyunca yüzünü halktan gizleyen **vakur, tam kapalı gümüş/demir bir kraliyet maskesi** (*IV. Baldwin otoritesinde, sıfır açık ten bırakan tasarım*) takmıştır; bu yüzden heykellerinde de gerçek yüzü görünmez veya zamanla aşınmıştır.
+* **Yüzü Gizleyen Unsur (`[TASARIMI AÇIK — BU HAFTA BELİRLENECEK]`):** Hafızasını kaybeden karakter dünyadaki kendi heykellerini gördüğünde kendini tanımasın diye hükümdarlığı boyunca yüzünü tamamen gizleyen bir unsur kullanmıştır *(IV. Baldwin tarzı maske yalnızca ilk deneme örneğidir; nihai form bu hafta belirlenecektir)*.
 
 ### 2.2. Kararsızlık Büyüsü ve Büyük Unutuş
 * 600 yılın sonunda İmparator kendi kurduğu sahte tebessüm ve zulüm düzeninden derin bir bıkkınlık duyar. Ancak kimliği bilindiği sürece halkın korkudan değişmeyeceğini anlar; düzeni bizzat içeriden yıkmak ister.
@@ -91,8 +91,8 @@ Her Boss yenildiğinde hemen ölmez; diz çöker ve oyuncuya 4 kader yolu açıl
 Oyuncuyu sadece büyük diyaloglarda değil, **en ufak oyun içi eylemde bile** ikilemde bırakan 6 çekirdek mekanik:
 
 1. **Güvenilmez Dış Ses (%50 Doğru / %50 Paranoya):** Kararsızlık Hükümdarı kafanın içinde NPC'ler hakkında fısıldar (*"Koynunda hançer var, sakın arkanı dönme"*). Oyun boyunca bu uyarıların yarısı hayat kurtaran gerçek, yarısı ise oyuncuyu masum birini öldürmeye iten yalandır.
-2. **Can Basma & Hafıza Kırıntısı İkilemi:**
-   * Can Eşyası (İdol), düşmandan yaşam enerjisi çekerek dolar; sık kullanmak zihinsel bulanıklığı artırır.
+2. **Can Basma Eşyası (`[TASARIMI AÇIK — DAHA SONRA KARAR VERİLECEK]`):**
+   * Can basma eşyasının ne olacağına ve formuna daha sonra karar verilecektir *(Karanlık İmparatorluk İdolü sadece 3D/Blender PBR teknik testi için üretilmiş bir prototiptir)*. Tasarım mantığı olarak düşmandan can/enerji alma veya sık kullanıldığında zihinsel bulanıklığı artırma ikilemi değerlendirilebilir.
    * Bulunan **Hafıza Kırıntılarını** kırıp tüketmek kalıcı Can/Hasar gücü verir **ama o geçmiş anısını sonsuza dek yok eder**; saklamak ise karakteri zayıf bırakır ama gerçeği açar.
 3. **Checkpoint'te Dinlenme Bedeli (Zaman İlerlemesi):** Acil olayların yaşandığı bölgelerde İmparator Heykeli'nde dinlenip can doldurmak zamanı ileri sarar; mahzende kurtarılmayı bekleyen isyancıların idam edilmesine yol açabilir.
 4. **Zoraki Gülümseme Okuma (Sosyal Gizlilik):** Şehirde herkes gülümser ama dikkatli bakıldığında dudağı titreyen veya gözü dolan NPC'ler gizli direnişçilerdir. İhbar etmek anında muhafız ödülü verir; yardım etmek gizli yeteneklerin kapısını açar.
