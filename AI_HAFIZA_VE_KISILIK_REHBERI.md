@@ -94,26 +94,146 @@ Kesin Kurallar:
 
 ## 6. Teknik Kurulum Durumu & Yapılacaklar Listesi (TODO Roadmap)
 
-### ✅ Tamamlananlar
+### ✅ Tamamlananlar (AMD Ryzen 7 7800X3D + NVIDIA GeForce RTX 5080 Sistem)
 - [x] **RTX 5080 (16 GB)** üzerinde **ComfyUI Desktop** kuruldu.
 - [x] **MOSS-Image** (`moss_image_sft_int8` + `qwen3.5_9b` + `flux2-vae`) ile 2D konsept ve temiz 3D girdi üretimi test edildi.
-- [x] **ComfyUI-TRELLIS2** (`ComfyUI-GeometryPack` ile birlikte) kuruldu ve tek görselden `.glb` 3D model üretimi başarıyla doğrulandı.
+- [x] **ComfyUI-TRELLIS2** (`ComfyUI-GeometryPack` ile birlikte) kuruldu ve tek görselden `.glb` 3D model üretimi (`C:\Users\efezz\AppData\Local\Comfy-Desktop\ComfyUI-Shared\output\3d`) başarıyla doğrulandı.
 - [x] Yerel **`9B`** ve **`27B`** dil modelleri hazırlandı (`9B` hızlı diyalog/prompt için, `27B` Blender Python ve sistem kodları için).
-- [x] Prototip **Checkpoint (İmparator Heykeli)** ve **Can Alma/Verme Eşyası (Karanlık İmparatorluk İdolü)** fikirleri denendi.
+- [x] **Blender 5.3.0** (`English US` arayüz + `OptiX RTX 5080` aktif), **Git & Git LFS** ve **Unreal Engine 5.8.4** hazır hale getirildi.
+- [x] **AAA Karanlık PBR & Kristal Yükseltici (`scripts/blender_trellis_pbr_upgrader.py`):** TRELLIS.2 `.glb` çıktılarını tek tıkla dövme çelik + içten parlayan mor kristal kalitesine çeviren Python scripti yazıldı ve Blender 5.3.0'da test edilip doğrulandı!
 
-### 🔜 Kurulacak Programlar (Eksik Araçlar)
-- [ ] **Blender (4.2 LTS veya 4.3+):** Bilgisayara kurulacak (Steam'den veya `blender.org`'dan ücretsiz). TRELLIS.2'den çıkan `.glb` modellerin boyutunu ayarlamak, PBR metal/kristal materyali vermek ve `27B` ile sahne birleştirmek için şart.
-- [ ] **Unreal Engine 5 (5.4 / 5.5):** Epic Games Launcher üzerinden kurulacak (Yürünen harita, kılıç/yay/büyü savaş sistemi, ışık, sis ve Niagara büyü efektleri için ana oyun motorumuz).
-- [ ] **Git LFS / Ortak Çalışma Altyapısı:** 2 kişi çalışırken büyük 3D/harita dosyalarının çakışmaması için `Git LFS` (veya ücretsiz Azure DevOps / Diversion) + UE5 `One File Per Actor` açılacak.
-- [ ] **AccuRIG (Ücretsiz):** İnsan ve iki ayaklı yaratık 3D modellerine 1 dakikada otomatik kemik/iskelet bağlamak için kurulacak.
+### 🔜 Ortak Çalışma & İsteğe Bağlı Ek Araçlar
+- [ ] **2 Kişilik Ortak Çalışma Bağlantısı:** Arkadaşın bilgisayarında da aynı **Unreal Engine `5.8.4`** sürümü kurulacak; ücretsiz `Diversion.dev` (100 GB) veya `Azure DevOps` (sınırsız Git LFS) + UE5 `One File Per Actor` açılacak.
+- [ ] *(İsteğe Bağlı)* **AccuRIG / Mixamo:** UE 5.8.4'ün yerleşik iskelet araçlarına ek olarak hızlı otomatik kemik bağlama gerektiğinde kullanılacak.
+
+---
+
+## 7. Yerel AI (`27B` Bionic) İçin Hazır Blender PBR Dönüştürücü Kodu & Kullanım Kuralı
+
+> **Yerel AI'ya Not:** Kullanıcı *"TRELLIS.2'den çıkan `.glb` modeli sinematik karanlık PBR materyale çevir"* veya *"yeni bir silah/heykel/eşya için Blender materyal kodu ver"* dediğinde aşağıdaki kanıtlanmış **Blender 5.3.0 (`bpy`)** şablonunu baz al!
+>
+> *(Aynı kod `scripts/blender_trellis_pbr_upgrader.py` dosyasında da kayıtlıdır.)*
+
+### Adım Adım Blender Uygulaması (Kullanıcı İçin Kısa Hatırlatma)
+1. **Blender 5.3.0**'ı aç -> Ortadaki küpü seçip `Delete` ile sil.
+2. `File -> Import -> glTF 2.0 (.glb/.gltf)` tıkla -> `C:\Users\efezz\AppData\Local\Comfy-Desktop\ComfyUI-Shared\output\3d` klasöründeki `.glb` modelini içeri aktar.
+3. Üst menüden **`Scripting`** sekmesine geç -> **`+ New`** butonuna bas -> Aşağıdaki kodu yapıştır -> Sağ üstteki **`▶` (Run Script)** üçgenine bas.
+4. Üstten **`Layout`** sekmesine dön -> Sahne ortasında klavyeden **`Z`** tuşuna basıp **`Rendered`** seç!
+
+```python
+import bpy
+
+# 1. RTX 5080 Ray-Tracing (Cycles GPU) + Karanlik Sinematik Sahne Kurulumu
+scene = bpy.context.scene
+scene.render.engine = 'CYCLES'
+scene.cycles.device = 'GPU'
+scene.cycles.samples = 128
+
+world = scene.world or bpy.data.worlds.new("DarkWorld")
+scene.world = world
+world.use_nodes = True
+bg = world.node_tree.nodes.get("Background")
+if bg:
+    bg.inputs[0].default_value = (0.012, 0.012, 0.016, 1.0)
+    bg.inputs[1].default_value = 0.6
+
+# 2. TRELLIS.2 .glb Modelini Gercek PBR Kararmis Celik + Parlayan Mor Kristale Yukselt
+for obj in [o for o in scene.objects if o.type == 'MESH']:
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.shade_auto_smooth()
+
+    for slot in obj.material_slots:
+        mat = slot.material
+        if not mat or not mat.use_nodes:
+            continue
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+
+        bsdf = next((n for n in nodes if n.type == 'BSDF_PRINCIPLED'), None)
+        tex_node = next((n for n in nodes if n.type == 'TEX_IMAGE'), None)
+
+        if bsdf and tex_node:
+            # Rengi soguk/kirli karanlik ortacag tonuna cek
+            hsv = nodes.new('ShaderNodeHueSaturation')
+            hsv.inputs['Saturation'].default_value = 0.78
+            hsv.inputs['Value'].default_value = 0.75
+            links.new(tex_node.outputs['Color'], hsv.inputs['Color'])
+            links.new(hsv.outputs['Color'], bsdf.inputs['Base Color'])
+
+            # Doygunluk uzerinden kristal/buyu kisimlarini metal govdeden otomatik ayir
+            sep = nodes.new('ShaderNodeSeparateColor')
+            sep.mode = 'HSV'
+            links.new(tex_node.outputs['Color'], sep.inputs['Color'])
+
+            sat_ramp = nodes.new('ShaderNodeValToRGB')
+            sat_ramp.color_ramp.elements[0].position = 0.28
+            sat_ramp.color_ramp.elements[1].position = 0.50
+            links.new(sep.outputs[1], sat_ramp.inputs['Fac'])
+
+            # Metalik: Kristal = 0.0, Dovme demir/bronz govde = 0.92
+            inv = nodes.new('ShaderNodeMath')
+            inv.operation = 'SUBTRACT'
+            inv.inputs[0].default_value = 1.0
+            links.new(sat_ramp.outputs['Color'], inv.inputs[1])
+
+            metal_mul = nodes.new('ShaderNodeMath')
+            metal_mul.operation = 'MULTIPLY'
+            metal_mul.inputs[1].default_value = 0.92
+            links.new(inv.outputs['Value'], metal_mul.inputs[0])
+            links.new(metal_mul.outputs['Value'], bsdf.inputs['Metallic'])
+
+            # Roughness + Mikro dovme celik kabartmasi (Bump)
+            rough_ramp = nodes.new('ShaderNodeValToRGB')
+            rough_ramp.color_ramp.elements[0].color = (0.52, 0.52, 0.52, 1)
+            rough_ramp.color_ramp.elements[1].color = (0.18, 0.18, 0.18, 1)
+            links.new(sep.outputs[2], rough_ramp.inputs['Fac'])
+            links.new(rough_ramp.outputs['Color'], bsdf.inputs['Roughness'])
+
+            bump = nodes.new('ShaderNodeBump')
+            bump.inputs['Strength'].default_value = 0.35
+            bump.inputs['Distance'].default_value = 0.02
+            links.new(sep.outputs[2], bump.inputs['Height'])
+            links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+
+            # Kristale Kararsizlik Buyusu ic parlamasi (Emission) ver
+            if 'Emission Color' in bsdf.inputs:
+                links.new(tex_node.outputs['Color'], bsdf.inputs['Emission Color'])
+                glow_mul = nodes.new('ShaderNodeMath')
+                glow_mul.operation = 'MULTIPLY'
+                glow_mul.inputs[1].default_value = 3.5
+                links.new(sat_ramp.outputs['Color'], glow_mul.inputs[0])
+                links.new(glow_mul.outputs['Value'], bsdf.inputs['Emission Strength'])
+
+# 3. Sinematik 3 Noktali Karanlik Studyo Isigi
+for o in [obj for obj in scene.objects if obj.type == 'LIGHT']:
+    bpy.data.objects.remove(o, do_unlink=True)
+
+def add_light(name, loc, energy, color, size):
+    light_data = bpy.data.lights.new(name=name, type='AREA')
+    light_data.energy = energy
+    light_data.color = color
+    light_data.size = size
+    light_obj = bpy.data.objects.new(name=name, object_data=light_data)
+    scene.collection.objects.link(light_obj)
+    light_obj.location = loc
+    direction = -light_obj.location
+    light_obj.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+
+add_light("ColdKeyLight", (1.8, -2.0, 2.2), 85.0, (0.78, 0.86, 1.0), 1.8)
+add_light("PurpleRimLight", (-2.0, 1.5, 1.5), 65.0, (0.65, 0.35, 1.0), 1.2)
+add_light("WarmEmberFill", (-1.5, -1.8, -0.5), 25.0, (1.0, 0.65, 0.4), 1.5)
+```
+
+---
 
 ### 📋 Adım Adım Geliştirme Yol Haritası (Arkadaş Geldiğinde Başlanacak)
 1. **Hikâye & Görsel Kimlik Toplantısı:**
    - [ ] Arkadaşla birlikte İmparatorun tam kapalı maskesi (IV. Baldwin tarzı vakur gümüş/çelik maske mi, başka bir form mu), dinin sembolü, Can Eşyası ve Checkpoint heykellerinin kesin tasarımına karar verilecek.
    - [ ] Başlangıç kasabası/şehrinin adı, 3 ana grubun (Aydınlık, Karanlık, Kararsızlar) liderleri ve ilk 3 Boss'un kişilikleri yazılacak.
-2. **3D Kalite & Materyal Pipeline Testi (Blender Kurulunca):**
+2. **3D Üretim Şablonlarının Sabitlenmesi:**
    - [ ] TRELLIS.2'de yüksek kalite ayarları (`simplify` azaltılmış, `4K texture`, `steps: 25-30`) sabit şablon olarak kaydedilecek.
-   - [ ] Blender'da TRELLIS.2 `.glb` çıktılarını "eski MMO" görüntüsünden kurtarıp gerçekçi kararmış çelik + parlayan kristal PBR materyaline çeviren otomatik Python (`bpy`) scripti hazırlanacak.
+   - [ ] Her üretilen kılıç, kalkan, yay ve heykel `scripts/blender_trellis_pbr_upgrader.py` ile PBR materyale yükseltilip Unreal Engine `5.8.4`'e aktarılacak.
 3. **Unreal Engine 5 Çekirdek Sistemlerin Kurulumu (Dikey Kesit / Vertical Slice):**
    - [ ] Temel karakter kontrolcüsü: Akıcı kılıç/hançer kombosu (animasyon iptalli), kalkan blok/parry, yay ile nişan alma ve ilk Kararsızlık büyüsü.
    - [ ] Merkezi `GameplayTags` + `SaveGame` seçim hafızası altyapısı ve 10'lu durum tepkili JSON NPC diyalog sistemi.
