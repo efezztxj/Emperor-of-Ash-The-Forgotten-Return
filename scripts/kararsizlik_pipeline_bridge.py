@@ -19,7 +19,7 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 3, 0),
+    "version": (2, 3, 1),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
     "description": "Sifir-Donma Hizli BMesh Catlak Dikici (0.1 sn!), Evrensel PBR ve Unreal 5.8 koprusu.",
@@ -191,8 +191,14 @@ class KARARSIZLIK_Properties(PropertyGroup):
 
 def apply_pivot_and_scale(obj, props):
     """TRELLIS.2 rastgele boyut ve merkezini Unreal Engine standartlarina hizalar."""
-    bpy.context.view_layer.objects.active = obj
+    if obj.type != 'MESH':
+        return
+    if bpy.context.mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+    # Isiklarin (NeutralKeyLight vb.) secili kalip transform_apply hatasi vermesini %100 onle!
+    bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
     bbox_world = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
@@ -779,7 +785,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.3"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.3.1"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
