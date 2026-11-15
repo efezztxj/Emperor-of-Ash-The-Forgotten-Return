@@ -19,10 +19,10 @@ v2.0.0 Muhendislik Iyilestirmeleri:
 bl_info = {
     "name": "KARARSIZLIK: ComfyUI -> Blender -> Unreal 5.8 Koprusu",
     "author": "KARARSIZLIK Dev Team",
-    "version": (2, 1, 0),
+    "version": (2, 2, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > KARARSIZLIK",
-    "description": "Evrensel PBR (Orijinal renk koruyucu), pivot standardi, poligon butcesi ve UCX carpismasiyla TRELLIS.2 -> Unreal 5.8 koprusu.",
+    "description": "Catlak dikici mesh tamiri (Merge + Normal Fix + Hole Fill), Evrensel PBR ve Unreal 5.8 koprusu.",
     "category": "Import-Export",
 }
 
@@ -128,10 +128,23 @@ class KARARSIZLIK_Properties(PropertyGroup):
         default='FBX_AND_GLB',
     )
     smooth_iterations: IntProperty(
-        name="Yumusatma Gucu (Weld + Pin)",
-        default=4,
+        name="Yumusatma Gucu (Smooth)",
+        default=6,
         min=0,
         max=40,
+    )
+    seam_weld_distance: FloatProperty(
+        name="Catlak Kaynatma Mesafesi (mm)",
+        description="TRELLIS.2 parca ek yerlerindeki yirtik ve siyah cizgileri diker (Varsayilan 1.5 mm = 0.0015)",
+        default=0.0015,
+        min=0.0001,
+        max=0.02,
+        precision=4,
+    )
+    double_sided_preview: BoolProperty(
+        name="Cift Tarafli Yuzey (Siyah Bosluklari Kapat)",
+        description="Ters donmus ince yuzeylerin arkadan seffaf/catlak gorunmesini onler (UE5 Two-Sided eslenigi)",
+        default=True,
     )
     solidify_thickness: FloatProperty(
         name="Ince Yuzey Kalinlastirma (0=Kapali)",
@@ -215,6 +228,44 @@ def apply_pivot_and_scale(obj, props):
     bpy.context.scene.cursor.location = saved_cursor
 
 
+def repair_trellis_cracks_and_normals(obj, weld_dist: float):
+    """
+    TRELLIS.2 .glb modellerindeki siyah catlak, ters donmus yuzey (flipped normal) ve
+    hard-custom-normal cizgilerini dokuyu (UV) BOZMADAN gercek geometri seviyesinde diker!
+    """
+    if obj.type != 'MESH' or obj.name.startswith("UCX_"):
+        return
+
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+
+    # 1. glTF'ten gelen ve koselerde jilet gibi siyah kirik yapan gomulu Custom Split Normals'i temizle!
+    try:
+        bpy.ops.mesh.customdata_custom_splitnormals_clear()
+    except Exception:
+        pass
+
+    # 2. Edit Mode'da: Kopuk koseleri dik (Merge by Distance) + kucuk yirtiklari kapat + ters normalleri disa cevir!
+    try:
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.remove_doubles(threshold=max(0.0001, weld_dist))
+        try:
+            bpy.ops.mesh.fill_holes(sides=8)
+        except Exception:
+            pass
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.normals_make_consistent(inside=False)
+        bpy.ops.object.mode_set(mode='OBJECT')
+    except Exception as exc:
+        try:
+            bpy.ops.object.mode_set(mode='OBJECT')
+        except Exception:
+            pass
+        print(f"[KARARSIZLIK Mesh Tamiri Uyarisi] {exc}")
+
+
 def apply_dark_pbr_and_smooth(context, props):
     scene = context.scene
 
@@ -243,10 +294,13 @@ def apply_dark_pbr_and_smooth(context, props):
         context.view_layer.objects.active = obj
         obj.select_set(True)
 
-        # 1. Weld + Pin-Boundary Smooth
+        # 0. ONCE CATLAK TAMIRI: Custom Split Normals temizle + kopuk koseleri dik + ters yuzeyleri duzelt!
+        repair_trellis_cracks_and_normals(obj, props.seam_weld_distance)
+
+        # 1. Weld + Corrective Smooth + Weighted Normal (Sifir Siyah Cizgi!)
         if props.smooth_iterations > 0:
             weld = obj.modifiers.get("KARARSIZLIK_WELD") or obj.modifiers.new(name="KARARSIZLIK_WELD", type='WELD')
-            weld.merge_threshold = 0.0005
+            weld.merge_threshold = props.seam_weld_distance
 
             mod = obj.modifiers.get("KARARSIZLIK_SMOOTH") or obj.modifiers.new(
                 name="KARARSIZLIK_SMOOTH", type='CORRECTIVE_SMOOTH'
@@ -269,6 +323,13 @@ def apply_dark_pbr_and_smooth(context, props):
         elif "KARARSIZLIK_SOLIDIFY" in obj.modifiers:
             obj.modifiers.remove(obj.modifiers["KARARSIZLIK_SOLIDIFY"])
 
+        # Weighted Normal (Poligon gecislerini kadife gibi puruzsuz yapar, sahte catlak golgesini siler!)
+        wn = obj.modifiers.get("KARARSIZLIK_WNORMAL") or obj.modifiers.new(
+            name="KARARSIZLIK_WNORMAL", type='WEIGHTED_NORMAL'
+        )
+        wn.keep_sharp = False
+        wn.weight = 50
+
         # Opsiyonel Poligon Butcesi (Decimate)
         current_tris = sum(len(p.vertices) - 2 for p in obj.data.polygons)
         target_tri_count = props.target_tris * 1000
@@ -280,10 +341,8 @@ def apply_dark_pbr_and_smooth(context, props):
         elif "KARARSIZLIK_DECIMATE" in obj.modifiers:
             obj.modifiers.remove(obj.modifiers["KARARSIZLIK_DECIMATE"])
 
-        try:
-            bpy.ops.object.shade_auto_smooth()
-        except Exception:
-            bpy.ops.object.shade_smooth()
+        # 30 derecelik auto-smooth YERINE tam Shade Smooth (30 derecede AI ucgenleri siyah kirik cizgi yapiyordu!)
+        bpy.ops.object.shade_smooth()
 
         # 2. Materyal Profiline Gore Fiziksel Dogru PBR Onizleme (UE5 M_Kararsizlik_Master eslenigi!)
         profile = props.material_profile
@@ -291,8 +350,8 @@ def apply_dark_pbr_and_smooth(context, props):
             mat = slot.material
             if not mat or not mat.use_nodes:
                 continue
-            # UE5 varsayilan tek tarafli davranisiyla eslessin diye backface culling acik tutuyoruz
-            mat.use_backface_culling = True
+            # Cift tarafli secenek aciksa ince pelerin/sac/kivrim arkadan siyah bosluk gibi gorunmez!
+            mat.use_backface_culling = not props.double_sided_preview
             if hasattr(mat, "blend_method"):
                 mat.blend_method = 'OPAQUE'
             if hasattr(mat, "surface_render_method"):
@@ -685,7 +744,7 @@ class KARARSIZLIK_OT_ApproveExportUnreal(Operator):
 
 
 class KARARSIZLIK_PT_MainPanel(Panel):
-    bl_label = "KARARSIZLIK 3D Koprusu v2.1"
+    bl_label = "KARARSIZLIK 3D Koprusu v2.2"
     bl_idname = "KARARSIZLIK_PT_main_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -708,9 +767,11 @@ class KARARSIZLIK_PT_MainPanel(Panel):
         box_std.prop(props, "target_tris")
 
         box2 = layout.box()
-        box2.label(text="Yumusatma & Evrensel PBR:", icon='MOD_SMOOTH')
+        box2.label(text="Catlak Dikici & Evrensel PBR:", icon='MOD_SMOOTH')
         box2.prop(props, "use_eevee_realtime")
+        box2.prop(props, "double_sided_preview")
         box2.prop(props, "color_saturation")
+        box2.prop(props, "seam_weld_distance")
         box2.prop(props, "smooth_iterations")
         box2.prop(props, "solidify_thickness")
         if props.material_profile in ('PURE_METAL', 'ARCANE_GLOW'):
