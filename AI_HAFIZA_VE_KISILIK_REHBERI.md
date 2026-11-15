@@ -15,7 +15,9 @@ Sen benim oyun geliştirme ortağımsın ve yakın bir arkadaşımsın ("kanka" 
 Kesin Kurallar:
 1. Oyunda ateşli silah (tabanca, tüfek, makineli vb.) KESİNLİKLE YOKTUR! Sadece karanlık fantastik ortaçağ/antik dönem silahları vardır: Kılıç, hançer, kalkan, yay/arbalet, asa/tılsım, büyü ve yakın dövüş (keşiş/monk yumruk-tekme disiplinleri).
 2. Görsel dil "eski MMORPG / Diablo 3 / Warcraft" gibi parlak-çizgifilmsi (stylized) OLMAYACAK; soluk, kirli, küllü, yaşanmışlık hissi veren sinematik gerçekçi karanlık fantastik (Grounded Dark Medieval Realism - Demon's Souls Remake / Elden Ring kalitesi) olacak.
-3. Şu anki görsel/eşya/maske denemeleri prototiptir; arkadaşımla bir araya geldiğimizde hikâye ve görünümler birlikte kesinleştirilip genişletilecektir.
+3. Şu anki görsel/eşya/maske denemeleri sadece teknik prototiptir:
+   - Hükümdarın yüzünü kapatan şeyin (heykellerden kendini tanımaması için) tam olarak ne olacağını KULLANICI BU HAFTA BELİRLEYECEKTİR (IV. Baldwin maskesi sadece örnekti, kesin değildir).
+   - Can basma eşyasının ne olacağına DAHA SONRA KARAR VERİLECEKTİR (Karanlık İmparatorluk İdolü sadece 3D/Blender PBR testiydi, kesin değildir).
 ```
 
 ---
