@@ -9,6 +9,7 @@ Karanlık fantastik üçüncü şahıs Aksiyon-RPG projesi. Aydınlık, karanlı
 * **`scripts/blender_trellis_pbr_upgrader.py`** — TRELLIS.2'den çıkan düz `.glb` modelleri Blender'da tek tıkla gerçekçi dövme çelik + içten parlayan kristal PBR materyaline ve sinematik ışıklandırmaya çeviren hazır Python (`bpy`) scripti.
 * **`scripts/kararsizlik_pipeline_bridge.py`** — **Özel Blender 5.x Köprü Eklentisi (`v1.3.0`):** ComfyUI `output\3d` klasörünü **canlı dinleyen (`🟢 Canlı Oto-Yakalayıcı`)**, yeni `.glb` üretildiği saniye otomatik çekip yumuşatan (`Weld + Pin-Boundary Smooth`), PBR + ışık kuran ve **kullanıcı onayıyla** doğrudan Unreal Engine 5.8.4 `AutoImport` klasörüne gönderen panel (`N` -> `KARARSIZLIK`).
 * **`scripts/kararsizlik_oto_fabrika.py`** — **RTX 5080 (16 GB VRAM) Korumalı Tam Otomatik Orkestra Şefi:** Tek Türkçe cümleden -> ComfyUI `MOSS-Image` 2D üretim (bekler) -> otomatik VRAM boşaltma (`/free`) -> `TRELLIS.2` 3D `.glb` üretim (bekler) -> Blender Canlı Oto-Yakalayıcıda otomatik PBR önizleme -> kullanıcı onayıyla Unreal 5.8.4 aktarımı!
+* **`scripts/kararsizlik_lmstudio_mcp.py`** — **LM Studio (Bionic 27B / 9B) Doğrudan MCP Skill Sunucusu:** LM Studio `mcp.json` içine bağlandığında yerel AI'ya `uret_2d_3d_ve_blendera_at` ve `onayla_ve_unreala_gonder` yeteneklerini kazandırır; sohbet kutusuna yazdığın an 2D -> 3D -> Blender PBR sürecini Bionic kendi eliyle yürütür!
 * **`concept_art/`** — İlk prototip/deneme konsept referansları (Checkpoint heykeli ve Can Eşyası İdolü denemeleri).
 
 ## 🛠️ Kurulu & Hazır Ana Araçlar (Ryzen 7 7800X3D + RTX 5080)

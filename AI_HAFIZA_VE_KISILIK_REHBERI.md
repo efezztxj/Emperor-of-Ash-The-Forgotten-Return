@@ -264,6 +264,21 @@ Hiçbir tuşa basmadan **`Türkçe Fikir Yaz -> 2D Görsel Çizsin & Beklesin ->
    ```
    * Script önce MOSS-Image ile 2D görseli üretip bitmesini bekler, ardından **RTX 5080 (16 GB VRAM) şişmesin diye MOSS modelini otomatik VRAM'den boşaltır (`/free`)**, sonra TRELLIS.2 ile `.glb` 3D modeli üretip bekler; `.glb` bittiği salise açık olan Blender onu havada yakalayıp PBR çelik+kristal ve ışıkla karşına çıkarır!
 
+### D. Doğrudan LM Studio Sohbetinden (Bionic 27B / 9B) Çalıştırmak İçin MCP Skill Bağlantısı (`scripts/kararsizlik_lmstudio_mcp.py`)
+Kullanıcı CMD yerine doğrudan **LM Studio sohbet penceresinden** Bionic'e *"Bana kırık bir İmparator kılıcı yap, 3D'ye çevir ve Blender'a at"* dediğinde Bionic'in bunu kendi eliyle yapması için **`kararsizlik_lmstudio_mcp.py`** eklendi!
+* LM Studio -> Sağ paneldeki **Program / Integrations (`MCP`)** -> **`Edit mcp.json`** içine şunu eklemen yeterlidir:
+```json
+{
+  "mcpServers": {
+    "kararsizlik-3d-factory": {
+      "command": "python",
+      "args": ["C:\\KARARSIZLIK_Fabrika\\kararsizlik_lmstudio_mcp.py"]
+    }
+  }
+}
+```
+* **Önemli VRAM İpucu (RTX 5080 - 16 GB):** ComfyUI ile aynı anda çalışırken 16 GB VRAM dolmasın diye LM Studio'da ya **`9B`** modelini açık tut ya da **`Bionic 27B`** yüklerken `GPU Offload` kaydırıcısını yarı yarıya (~15-20 katman GPU, kalanı Sistem RAM'i — Ryzen 7 7800X3D çok hızlı olduğu için saniyesinde yanıt verir!) ayarla!
+
 ---
 
 ### 📋 Adım Adım Geliştirme Yol Haritası (Arkadaş Geldiğinde Başlanacak)
